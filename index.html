@@ -75,7 +75,7 @@
 <body>
 
 <header>
-  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.1.0</span></h1>
+  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.2.0</span></h1>
   <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
 </header>
 
@@ -115,26 +115,6 @@
     <div class="warn">⚠️ תמלול קולי דורש דפדפן <b>Chrome</b>. אנא פתחו את הדף הזה בכרום.</div>
   </div>
 
-  <!-- Agenda for next meeting -->
-  <div class="card">
-    <h2>📝 נושאים לישיבה הבאה</h2>
-    <div id="agendaList"><div class="empty">אין עדיין נושאים...</div></div>
-    <div class="row">
-      <input type="text" id="agendaInput" placeholder="הקלידו נושא...">
-      <button class="btn-primary" id="agendaAddBtn">הוסף</button>
-    </div>
-    <div class="row">
-      <button class="btn-ghost" style="width:100%;" id="voiceTopicBtn">🎙️ הוסף נושא בהקלטה קולית</button>
-    </div>
-    <div id="voiceTopicReview" style="display:none;margin-top:10px;">
-      <textarea id="voiceTopicText" rows="2"></textarea>
-      <div class="row">
-        <button class="btn-primary" id="voiceTopicSave">💾 שמור נושא</button>
-        <button class="btn-ghost" id="voiceTopicCancel">ביטול</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Meeting recording -->
   <div class="card">
     <h2>🎤 הקלטת ישיבה</h2>
@@ -156,7 +136,7 @@
         <button class="btn-ghost" id="setupParticipantAdd">הוסף</button>
       </div>
 
-      <div class="lbl">נושאים לדיון (מהרשימה למעלה, ניתן להסיר או להוסיף):</div>
+      <div class="lbl">נושאים לדיון (נמשכו מרשימת "נושאים לישיבה הבאה", ניתן להסיר או להוסיף):</div>
       <div id="setupTopics"></div>
       <div class="row">
         <input type="text" id="setupTopicInput" placeholder="נושא נוסף...">
@@ -189,6 +169,26 @@
       <div class="row" style="margin-top:14px;">
         <button class="btn-primary" style="flex:1;" id="saveSummaryBtn">💾 שמור ישיבה</button>
         <button class="btn-ghost" id="discardSummaryBtn">מחק</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agenda for next meeting -->
+  <div class="card">
+    <h2>📝 נושאים לישיבה הבאה</h2>
+    <div id="agendaList"><div class="empty">אין עדיין נושאים...</div></div>
+    <div class="row">
+      <input type="text" id="agendaInput" placeholder="הקלידו נושא...">
+      <button class="btn-primary" id="agendaAddBtn">הוסף</button>
+    </div>
+    <div class="row">
+      <button class="btn-ghost" style="width:100%;" id="voiceTopicBtn">🎙️ הוסף נושא בהקלטה קולית</button>
+    </div>
+    <div id="voiceTopicReview" style="display:none;margin-top:10px;">
+      <textarea id="voiceTopicText" rows="2"></textarea>
+      <div class="row">
+        <button class="btn-primary" id="voiceTopicSave">💾 שמור נושא</button>
+        <button class="btn-ghost" id="voiceTopicCancel">ביטול</button>
       </div>
     </div>
   </div>
@@ -264,6 +264,7 @@ function renderAgenda(snap) {
   var host = document.getElementById('agendaList');
   keys.sort(function(a, b) { return (val[a].ts || 0) - (val[b].ts || 0); });
   agendaCache = keys.map(function(k) { return { key: k, text: val[k].text }; });
+  maybeAutoStartMeeting();
   if (!keys.length) { host.innerHTML = '<div class="empty">אין עדיין נושאים...</div>'; return; }
   host.innerHTML = '';
   keys.forEach(function(k) {
@@ -312,29 +313,43 @@ function newRecognizer() {
 var voiceTopicRec = null;
 var voiceTopicActive = false;
 
+var voiceTopicFinalText = '';
+
 document.getElementById('voiceTopicBtn').addEventListener('click', function() {
   if (!SpeechRecognitionCtor) { showToast('יש לפתוח ב-Chrome'); return; }
-  if (voiceTopicActive) return;
-  voiceTopicActive = true;
   var btn = document.getElementById('voiceTopicBtn');
-  btn.textContent = '🔴 מקליט... (דברו עכשיו)';
-  var finalText = '';
+  if (voiceTopicActive) {
+    // manual stop — set the flag BEFORE stop() so onend finalizes instead of auto-restarting
+    voiceTopicActive = false;
+    if (voiceTopicRec) { try { voiceTopicRec.stop(); } catch (e) {} }
+    return;
+  }
+  voiceTopicActive = true;
+  btn.textContent = '⏹️ עצור הקלטה (לחצו כשסיימתם)';
+  voiceTopicFinalText = '';
   voiceTopicRec = newRecognizer();
-  voiceTopicRec.continuous = false;
+  voiceTopicRec.continuous = true;
   voiceTopicRec.onresult = function(e) {
     var t = '';
     for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-    finalText = t;
+    voiceTopicFinalText = t;
   };
   voiceTopicRec.onend = function() {
-    voiceTopicActive = false;
+    // Chrome may cut the connection on silence even while we still want to listen — restart seamlessly.
+    if (voiceTopicActive) { try { voiceTopicRec.start(); return; } catch (e) {} }
     btn.textContent = '🎙️ הוסף נושא בהקלטה קולית';
-    if (finalText.trim()) {
-      document.getElementById('voiceTopicText').value = finalText.trim();
+    if (voiceTopicFinalText.trim()) {
+      document.getElementById('voiceTopicText').value = voiceTopicFinalText.trim();
       document.getElementById('voiceTopicReview').style.display = 'block';
     }
   };
-  voiceTopicRec.onerror = function() { voiceTopicActive = false; btn.textContent = '🎙️ הוסף נושא בהקלטה קולית'; };
+  voiceTopicRec.onerror = function(e) {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      voiceTopicActive = false;
+      btn.textContent = '🎙️ הוסף נושא בהקלטה קולית';
+      showToast('אין הרשאת מיקרופון');
+    }
+  };
   try { voiceTopicRec.start(); } catch (e) {}
 });
 
@@ -434,12 +449,14 @@ function renderSetupTopics() {
   });
 }
 
-document.getElementById('startMeetingBtn').addEventListener('click', function() {
-  if (!SpeechRecognitionCtor) { showToast('יש לפתוח ב-Chrome'); return; }
+function beginNewMeetingSetup() {
+  if (!SpeechRecognitionCtor) return;
+  if (meeting) return; // a meeting is already being set up / recorded — don't clobber it
   meeting = {
     title: defaultTitle(),
     participants: [],
-    topics: agendaCache.map(function(a) { return { id: uid(), name: a.text, segments: [] }; })
+    // agendaKey is kept so a saved meeting can clear these items out of the live agenda (fix: stale topics lingering)
+    topics: agendaCache.map(function(a) { return { id: uid(), name: a.text, segments: [], agendaKey: a.key }; })
   };
   document.getElementById('setupTitle').value = meeting.title;
   renderChips('setupParticipants', meeting.participants, true, removeSetupParticipant);
@@ -447,6 +464,11 @@ document.getElementById('startMeetingBtn').addEventListener('click', function() 
   renderSetupTopics();
   document.getElementById('recordIdle').style.display = 'none';
   document.getElementById('stageSetup').style.display = 'block';
+}
+
+document.getElementById('startMeetingBtn').addEventListener('click', function() {
+  if (!SpeechRecognitionCtor) { showToast('יש לפתוח ב-Chrome'); return; }
+  beginNewMeetingSetup();
 });
 
 document.getElementById('cancelSetupBtn').addEventListener('click', function() {
@@ -654,6 +676,10 @@ document.getElementById('saveSummaryBtn').addEventListener('click', function() {
   }).then(function() {
     showToast('✅ הישיבה נשמרה');
     if (meeting.participants.length) saveRecentParticipants(meeting.participants);
+    // topics that came from the live agenda are now captured in the saved summary — clear them so they don't linger
+    meeting.topics.forEach(function(t) {
+      if (t.agendaKey) fbDb.ref('meetings/agenda/' + t.agendaKey).remove();
+    });
     meeting = null;
     document.getElementById('stageReview').style.display = 'none';
     document.getElementById('recordIdle').style.display = 'block';
@@ -771,6 +797,20 @@ function todayStr() {
   var d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Opening the app always jumps straight into setting up a new meeting
+// (fix: previously landed on an idle screen requiring an extra tap).
+// Triggered as soon as the live agenda arrives so topics are pre-filled
+// correctly; a fallback timer covers the case where Firebase is slow/down.
+// ═══════════════════════════════════════════════════════════════════
+var autoStartDone = false;
+function maybeAutoStartMeeting() {
+  if (autoStartDone) return;
+  autoStartDone = true;
+  beginNewMeetingSetup();
+}
+setTimeout(maybeAutoStartMeeting, 3000);
 
 if (!SpeechRecognitionCtor) document.getElementById('unsupportedCard').style.display = 'block';
 initFirebase();
