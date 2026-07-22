@@ -1,0 +1,15 @@
+{
+  "name": "סיכומי ישיבות",
+  "short_name": "סיכומי ישיבות",
+  "description": "הקלטה, תמלול וסיכום אוטומטי של ישיבות",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f4f8",
+  "theme_color": "#16213e",
+  "dir": "rtl",
+  "lang": "he",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

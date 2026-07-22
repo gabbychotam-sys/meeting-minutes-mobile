@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#16213e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>סיכומי ישיבות</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; font-family:'Segoe UI', Arial, sans-serif; background:#f2f4f8; color:#1a1a2e; direction:rtl; padding-bottom:40px; }
+  header { background:linear-gradient(135deg,#0f3460 0%,#16213e 100%); color:#fff; padding:16px 18px; position:sticky; top:0; z-index:50; box-shadow:0 2px 10px rgba(0,0,0,.2); }
+  header h1 { margin:0; font-size:19px; }
+  .sync-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; margin-top:6px; opacity:.85; }
+  .dot { width:8px; height:8px; border-radius:50%; background:#f2c94c; }
+  .dot.ok { background:#27ae60; } .dot.off { background:#eb5757; }
+  main { max-width:520px; margin:0 auto; padding:14px; }
+  .card { background:#fff; border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+  .card h2 { margin:0 0 10px; font-size:16px; color:#0f3460; display:flex; align-items:center; gap:8px; }
+  .topic-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 4px; border-bottom:1px solid #eee; }
+  .topic-row:last-child { border-bottom:none; }
+  .topic-row span { flex:1; font-size:14px; }
+  .topic-row .src { font-size:10px; color:#999; }
+  .del-btn { background:none; border:none; color:#c0392b; font-size:16px; cursor:pointer; padding:4px 8px; }
+  .empty { color:#999; font-size:13px; padding:6px 2px; }
+  .row { display:flex; gap:8px; margin-top:10px; }
+  input[type=text], textarea { width:100%; border:1px solid #ddd; border-radius:10px; padding:10px 12px; font-size:14px; font-family:inherit; direction:rtl; }
+  textarea { resize:vertical; min-height:70px; }
+  button { font-family:inherit; cursor:pointer; border:none; border-radius:10px; }
+  .btn-primary { background:#0f3460; color:#fff; padding:11px 16px; font-size:14px; }
+  .btn-primary:disabled { opacity:.5; }
+  .btn-ghost { background:#eef1f8; color:#0f3460; padding:11px 14px; font-size:14px; }
+  .btn-big { width:100%; padding:18px; font-size:17px; font-weight:600; border-radius:14px; display:flex; align-items:center; justify-content:center; gap:10px; }
+  .btn-record { background:linear-gradient(135deg,#eb5757,#c0392b); color:#fff; }
+  .btn-stop { background:#333; color:#fff; }
+  .pulse { width:12px; height:12px; border-radius:50%; background:#fff; animation:pulse 1.1s infinite; }
+  @keyframes pulse { 0%{opacity:1;transform:scale(1);} 50%{opacity:.4;transform:scale(1.4);} 100%{opacity:1;transform:scale(1);} }
+  .timer { text-align:center; font-size:32px; font-weight:700; color:#0f3460; margin:10px 0; font-variant-numeric:tabular-nums; }
+  .live-transcript { background:#f7f8fb; border-radius:10px; padding:10px; max-height:180px; overflow-y:auto; font-size:13px; line-height:1.6; color:#333; white-space:pre-wrap; }
+  .interim { color:#999; }
+  .summary-item { background:#fff; border:1px solid #e5e5ee; border-radius:10px; padding:12px; margin-bottom:10px; cursor:pointer; }
+  .summary-item .date { font-weight:700; color:#0f3460; font-size:14px; }
+  .summary-item .preview { font-size:12px; color:#666; margin-top:4px; max-height:36px; overflow:hidden; }
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200; display:flex; align-items:flex-end; justify-content:center; }
+  .modal { background:#fff; border-radius:18px 18px 0 0; padding:18px; width:100%; max-width:520px; max-height:88vh; overflow-y:auto; }
+  .modal h3 { margin-top:0; color:#0f3460; }
+  .modal-close { display:block; width:100%; margin-top:14px; padding:12px; background:#eef1f8; border-radius:10px; text-align:center; color:#0f3460; font-weight:600; }
+  .warn { background:#fff3cd; border:1px solid #ffe69c; color:#7a5b00; padding:10px 12px; border-radius:10px; font-size:13px; margin-bottom:12px; }
+  .toast { position:fixed; bottom:16px; right:16px; left:16px; max-width:488px; margin:0 auto; background:#1a1a2e; color:#fff; padding:12px 16px; border-radius:10px; font-size:13px; z-index:300; box-shadow:0 4px 16px rgba(0,0,0,.3); opacity:0; transform:translateY(20px); transition:.25s; pointer-events:none; }
+  .toast.show { opacity:1; transform:translateY(0); }
+  .bullets { padding-inline-start:20px; margin:0; font-size:13px; line-height:1.8; }
+  .transcript-full { white-space:pre-wrap; font-size:12.5px; color:#444; background:#f7f8fb; border-radius:10px; padding:10px; margin-top:8px; max-height:260px; overflow-y:auto; }
+  details summary { cursor:pointer; font-size:12px; color:#0f3460; margin-top:6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🗓️ סיכומי ישיבות</h1>
+  <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
+</header>
+
+<main>
+
+  <div class="card" id="unsupportedCard" style="display:none;">
+    <div class="warn">⚠️ תמלול קולי דורש דפדפן <b>Chrome</b>. אנא פתחו את הדף הזה בכרום.</div>
+  </div>
+
+  <!-- Agenda for next meeting -->
+  <div class="card">
+    <h2>📝 נושאים לישיבה הבאה</h2>
+    <div id="agendaList"><div class="empty">אין עדיין נושאים...</div></div>
+    <div class="row">
+      <input type="text" id="agendaInput" placeholder="הקלידו נושא...">
+      <button class="btn-primary" id="agendaAddBtn">הוסף</button>
+    </div>
+    <div class="row">
+      <button class="btn-ghost" style="width:100%;" id="voiceTopicBtn">🎙️ הוסף נושא בהקלטה קולית</button>
+    </div>
+    <div id="voiceTopicReview" style="display:none;margin-top:10px;">
+      <textarea id="voiceTopicText" rows="2"></textarea>
+      <div class="row">
+        <button class="btn-primary" id="voiceTopicSave">💾 שמור נושא</button>
+        <button class="btn-ghost" id="voiceTopicCancel">ביטול</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meeting recording -->
+  <div class="card">
+    <h2>🎤 הקלטת ישיבה</h2>
+    <div id="recordIdle">
+      <button class="btn-big btn-record" id="startRecordBtn">🔴 התחל הקלטת ישיבה</button>
+    </div>
+    <div id="recordActive" style="display:none;">
+      <div class="timer" id="timerDisplay">00:00</div>
+      <button class="btn-big btn-stop" id="stopRecordBtn"><span class="pulse"></span> עצור וסכם ישיבה</button>
+      <div class="live-transcript" id="liveTranscript" style="margin-top:12px;"></div>
+    </div>
+    <div id="recordReview" style="display:none;margin-top:8px;">
+      <div style="font-size:13px;color:#666;margin-bottom:6px;">תאריך הישיבה:</div>
+      <input type="text" id="reviewDate">
+      <div style="font-size:13px;color:#666;margin:10px 0 6px;">סיכום (ניתן לערוך):</div>
+      <textarea id="reviewSummary" rows="8"></textarea>
+      <details style="margin-top:8px;">
+        <summary>הצג תמלול מלא</summary>
+        <div class="transcript-full" id="reviewTranscript"></div>
+      </details>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn-primary" style="flex:1;" id="saveSummaryBtn">💾 שמור סיכום</button>
+        <button class="btn-ghost" id="discardSummaryBtn">מחק</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Past summaries -->
+  <div class="card">
+    <h2>🗂️ סיכומים קודמים</h2>
+    <div id="summariesList"><div class="empty">אין עדיין סיכומים שמורים...</div></div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+<div id="modalHost"></div>
+
+<!-- Firebase SDK (compat v8 — works without ES modules) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// Firebase — shares the Galil Elyon project, dedicated "meetings" node
+// ═══════════════════════════════════════════════════════════════════
+var FB_CONFIG = {
+  apiKey:      "AIzaSyBvTzz4d__umScNiSIrculeQuogSIHSddY",
+  databaseURL: "https://galil-elyon-vehicles-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:   "galil-elyon-vehicles"
+};
+var fbDb = null;
+
+function setSyncChip(state, text) {
+  var dot = document.getElementById('syncDot');
+  dot.className = 'dot ' + state;
+  document.getElementById('syncText').textContent = text;
+}
+
+function initFirebase() {
+  try {
+    var app = firebase.initializeApp(FB_CONFIG);
+    fbDb = firebase.database();
+    fbDb.ref('.info/connected').on('value', function(snap) {
+      setSyncChip(snap.val() === true ? 'ok' : 'pending', snap.val() === true ? 'מסונכרן' : 'מתחבר...');
+    });
+    fbDb.ref('meetings/agenda').on('value', renderAgenda, function(err) { onFbError(err); });
+    fbDb.ref('meetings/summaries').on('value', renderSummaries, function(err) { onFbError(err); });
+  } catch (e) {
+    setSyncChip('off', 'שגיאת התחברות');
+    console.error(e);
+  }
+}
+
+function onFbError(err) {
+  setSyncChip('off', 'אין הרשאה');
+  showToast('⚠️ בעיית הרשאות בפיירבייס — יש לפתוח את Firebase Console ולהוסיף כלל ציבורי לנתיב "meetings" (Realtime Database → Rules).');
+  console.error(err);
+}
+
+function showToast(msg, ms) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(function() { t.classList.remove('show'); }, ms || 3200);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Agenda: topics for the next meeting
+// ═══════════════════════════════════════════════════════════════════
+function renderAgenda(snap) {
+  var val = snap.val() || {};
+  var keys = Object.keys(val);
+  var host = document.getElementById('agendaList');
+  if (!keys.length) { host.innerHTML = '<div class="empty">אין עדיין נושאים...</div>'; return; }
+  keys.sort(function(a, b) { return (val[a].ts || 0) - (val[b].ts || 0); });
+  host.innerHTML = '';
+  keys.forEach(function(k) {
+    var item = val[k];
+    var row = document.createElement('div');
+    row.className = 'topic-row';
+    var srcLabel = item.source === 'desktop' ? '💻 מהמחשב' : '🎙️ מהנייד';
+    row.innerHTML = '<span>' + escapeHtml(item.text) + '<div class="src">' + srcLabel + '</div></span>' +
+                    '<button class="del-btn" data-key="' + k + '">✕</button>';
+    row.querySelector('.del-btn').addEventListener('click', function() {
+      fbDb.ref('meetings/agenda/' + k).remove();
+    });
+    host.appendChild(row);
+  });
+}
+
+function addAgendaTopic(text, source) {
+  text = (text || '').trim();
+  if (!text || !fbDb) return;
+  fbDb.ref('meetings/agenda').push({ text: text, source: source, ts: Date.now() });
+}
+
+document.getElementById('agendaAddBtn').addEventListener('click', function() {
+  var inp = document.getElementById('agendaInput');
+  addAgendaTopic(inp.value, 'mobile');
+  inp.value = '';
+});
+document.getElementById('agendaInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('agendaAddBtn').click();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Speech recognition helper
+// ═══════════════════════════════════════════════════════════════════
+var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function newRecognizer() {
+  var r = new SpeechRecognitionCtor();
+  r.lang = 'he-IL';
+  r.continuous = true;
+  r.interimResults = true;
+  return r;
+}
+
+// ─── Quick voice-add of an agenda topic ───
+var voiceTopicRec = null;
+var voiceTopicActive = false;
+
+document.getElementById('voiceTopicBtn').addEventListener('click', function() {
+  if (!SpeechRecognitionCtor) { showToast('יש לפתוח ב-Chrome'); return; }
+  if (voiceTopicActive) return;
+  voiceTopicActive = true;
+  var btn = document.getElementById('voiceTopicBtn');
+  btn.textContent = '🔴 מקליט... (דברו עכשיו)';
+  var finalText = '';
+  voiceTopicRec = newRecognizer();
+  voiceTopicRec.continuous = false;
+  voiceTopicRec.onresult = function(e) {
+    var t = '';
+    for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    finalText = t;
+  };
+  voiceTopicRec.onend = function() {
+    voiceTopicActive = false;
+    btn.textContent = '🎙️ הוסף נושא בהקלטה קולית';
+    if (finalText.trim()) {
+      document.getElementById('voiceTopicText').value = finalText.trim();
+      document.getElementById('voiceTopicReview').style.display = 'block';
+    }
+  };
+  voiceTopicRec.onerror = function() { voiceTopicActive = false; btn.textContent = '🎙️ הוסף נושא בהקלטה קולית'; };
+  try { voiceTopicRec.start(); } catch (e) {}
+});
+
+document.getElementById('voiceTopicSave').addEventListener('click', function() {
+  addAgendaTopic(document.getElementById('voiceTopicText').value, 'mobile');
+  document.getElementById('voiceTopicReview').style.display = 'none';
+  document.getElementById('voiceTopicText').value = '';
+});
+document.getElementById('voiceTopicCancel').addEventListener('click', function() {
+  document.getElementById('voiceTopicReview').style.display = 'none';
+  document.getElementById('voiceTopicText').value = '';
+});
+
+// ─── Full meeting recording ───
+var meetingRec = null;
+var isRecording = false;
+var finalTranscript = '';
+var recStartTs = 0;
+var timerHandle = null;
+
+document.getElementById('startRecordBtn').addEventListener('click', function() {
+  if (!SpeechRecognitionCtor) { showToast('יש לפתוח ב-Chrome'); return; }
+  isRecording = true;
+  finalTranscript = '';
+  recStartTs = Date.now();
+  document.getElementById('recordIdle').style.display = 'none';
+  document.getElementById('recordActive').style.display = 'block';
+  document.getElementById('recordReview').style.display = 'none';
+  document.getElementById('liveTranscript').textContent = '';
+  timerHandle = setInterval(updateTimer, 1000);
+  startMeetingRecognition();
+});
+
+function startMeetingRecognition() {
+  meetingRec = newRecognizer();
+  meetingRec.onresult = function(e) {
+    var interim = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      var t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalTranscript += t + ' ';
+      else interim += t;
+    }
+    document.getElementById('liveTranscript').innerHTML = escapeHtml(finalTranscript) + '<span class="interim">' + escapeHtml(interim) + '</span>';
+    document.getElementById('liveTranscript').scrollTop = document.getElementById('liveTranscript').scrollHeight;
+  };
+  meetingRec.onend = function() {
+    if (isRecording) { try { meetingRec.start(); } catch (e) {} } // browser auto-cuts off after silence — restart seamlessly
+  };
+  meetingRec.onerror = function(e) {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      isRecording = false;
+      showToast('אין הרשאת מיקרופון');
+    }
+  };
+  try { meetingRec.start(); } catch (e) {}
+}
+
+function updateTimer() {
+  var sec = Math.floor((Date.now() - recStartTs) / 1000);
+  var m = String(Math.floor(sec / 60)).padStart(2, '0');
+  var s = String(sec % 60).padStart(2, '0');
+  document.getElementById('timerDisplay').textContent = m + ':' + s;
+}
+
+document.getElementById('stopRecordBtn').addEventListener('click', function() {
+  isRecording = false;
+  clearInterval(timerHandle);
+  if (meetingRec) { try { meetingRec.stop(); } catch (e) {} }
+  document.getElementById('recordActive').style.display = 'none';
+  document.getElementById('recordIdle').style.display = 'block';
+
+  var transcript = finalTranscript.trim();
+  if (!transcript) { showToast('לא זוהה דיבור בהקלטה'); return; }
+
+  var summaryBullets = summarize(transcript);
+  document.getElementById('reviewDate').value = todayStr();
+  document.getElementById('reviewSummary').value = summaryBullets.map(function(s) { return '• ' + s; }).join('\n');
+  document.getElementById('reviewTranscript').textContent = transcript;
+  document.getElementById('recordReview').style.display = 'block';
+  document.getElementById('recordReview').scrollIntoView({ behavior: 'smooth' });
+
+  window._pendingTranscript = transcript;
+});
+
+document.getElementById('saveSummaryBtn').addEventListener('click', function() {
+  if (!fbDb) return;
+  var date = document.getElementById('reviewDate').value.trim() || todayStr();
+  var summary = document.getElementById('reviewSummary').value.trim();
+  var transcript = window._pendingTranscript || '';
+  fbDb.ref('meetings/summaries').push({
+    date: date,
+    summary: summary,
+    transcript: transcript,
+    createdAt: Date.now()
+  }).then(function() {
+    showToast('✅ הסיכום נשמר');
+    document.getElementById('recordReview').style.display = 'none';
+  }).catch(function(err) { onFbError(err); });
+});
+
+document.getElementById('discardSummaryBtn').addEventListener('click', function() {
+  document.getElementById('recordReview').style.display = 'none';
+  window._pendingTranscript = '';
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Past summaries
+// ═══════════════════════════════════════════════════════════════════
+function renderSummaries(snap) {
+  var val = snap.val() || {};
+  var keys = Object.keys(val);
+  var host = document.getElementById('summariesList');
+  if (!keys.length) { host.innerHTML = '<div class="empty">אין עדיין סיכומים שמורים...</div>'; return; }
+  keys.sort(function(a, b) { return (val[b].createdAt || 0) - (val[a].createdAt || 0); });
+  host.innerHTML = '';
+  keys.forEach(function(k) {
+    var item = val[k];
+    var el = document.createElement('div');
+    el.className = 'summary-item';
+    el.innerHTML = '<div class="date">📅 ' + escapeHtml(item.date || '') + '</div>' +
+                    '<div class="preview">' + escapeHtml((item.summary || '').replace(/\n/g, ' ')) + '</div>';
+    el.addEventListener('click', function() { openSummaryModal(k, item); });
+    host.appendChild(el);
+  });
+}
+
+function openSummaryModal(key, item) {
+  var host = document.getElementById('modalHost');
+  host.innerHTML =
+    '<div class="modal-overlay" id="ov"><div class="modal">' +
+    '<h3>📅 ' + escapeHtml(item.date || '') + '</h3>' +
+    '<div class="bullets">' + escapeHtml(item.summary || '').replace(/\n/g, '<br>') + '</div>' +
+    '<details style="margin-top:10px;"><summary>הצג תמלול מלא</summary>' +
+    '<div class="transcript-full">' + escapeHtml(item.transcript || '') + '</div></details>' +
+    '<button class="btn-ghost" style="width:100%;margin-top:14px;color:#c0392b;" id="delSumm">🗑️ מחק סיכום</button>' +
+    '<div class="modal-close" id="closeModal">סגור</div>' +
+    '</div></div>';
+  document.getElementById('closeModal').addEventListener('click', function() { host.innerHTML = ''; });
+  document.getElementById('ov').addEventListener('click', function(e) { if (e.target.id === 'ov') host.innerHTML = ''; });
+  document.getElementById('delSumm').addEventListener('click', function() {
+    fbDb.ref('meetings/summaries/' + key).remove();
+    host.innerHTML = '';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Extractive summarizer — frequency-scored sentence selection (offline)
+// ═══════════════════════════════════════════════════════════════════
+var STOPWORDS = ['של','את','על','עם','אני','אתה','את','הוא','היא','אנחנו','אתם','הם','הן','זה','זאת','זו','אלה','אלו',
+  'כל','גם','לא','כן','אבל','אז','רק','יש','אין','היה','היתה','היו','יהיה','תהיה','צריך','צריכה','אפשר','כי','אם',
+  'מה','מי','איך','למה','מדוע','כאשר','כש','עד','אחרי','לפני','בין','וגם','או','כדי','שלי','שלך','שלו','שלה',
+  'שלנו','שלכם','שלהם','פה','שם','כבר','עוד','מאוד','הרבה','קצת','תודה','בבקשה','שלום','אז','זאת','היי','טוב',
+  'בסדר','נו','אה','אוקיי','okay','ok'];
+
+function summarize(text, maxSentences) {
+  var sentences = text.split(/(?<=[.!?])\s+|\n+/).map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 4; });
+  if (!sentences.length) return [text];
+  var stopSet = {};
+  STOPWORDS.forEach(function(w) { stopSet[w] = true; });
+
+  function words(s) { return s.replace(/[^֐-׿a-zA-Z0-9\s]/g, '').split(/\s+/).filter(function(w) { return w && w.length > 1 && !stopSet[w]; }); }
+
+  var freq = {};
+  sentences.forEach(function(s) { words(s).forEach(function(w) { freq[w] = (freq[w] || 0) + 1; }); });
+
+  var n = maxSentences || Math.min(12, Math.max(3, Math.round(sentences.length * 0.25)));
+  if (sentences.length <= n) return sentences;
+
+  var scored = sentences.map(function(s, i) {
+    var ws = words(s);
+    var score = ws.reduce(function(sum, w) { return sum + (freq[w] || 0); }, 0);
+    return { s: s, i: i, score: ws.length ? score / ws.length : 0 };
+  });
+  scored.sort(function(a, b) { return b.score - a.score; });
+  var top = scored.slice(0, n);
+  top.sort(function(a, b) { return a.i - b.i; });
+  return top.map(function(t) { return t.s; });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Utilities
+// ═══════════════════════════════════════════════════════════════════
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function todayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+if (!SpeechRecognitionCtor) document.getElementById('unsupportedCard').style.display = 'block';
+initFirebase();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(function() {});
+}
+</script>
+</body>
+</html>
