@@ -57,9 +57,39 @@
 <body>
 
 <header>
-  <h1>🗓️ סיכומי ישיבות</h1>
+  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.0.0</span></h1>
   <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
 </header>
+
+<!-- ═══════════ PWA INSTALL PROMPT ═══════════ -->
+<div id="pwa-install-banner" style="display:none;position:fixed;bottom:16px;right:16px;left:16px;max-width:488px;margin:0 auto;background:#7c3aed;color:#fff;padding:14px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(124,58,237,0.4);z-index:99998;font-family:inherit;direction:rtl;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div style="font-size:28px;">📥</div>
+    <div style="flex:1;">
+      <div style="font-weight:700;font-size:14px;margin-bottom:2px;">התקן כאפליקציה</div>
+      <div style="font-size:11px;opacity:0.9;">קיצור דרך נוח על המסך הראשי</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:10px;">
+    <button id="pwa-install-btn" style="flex:1;padding:9px;background:#fff;color:#7c3aed;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;-webkit-appearance:none;">התקן</button>
+    <button id="pwa-dismiss-btn" style="padding:9px 14px;background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:8px;font-size:13px;cursor:pointer;-webkit-appearance:none;">לא עכשיו</button>
+  </div>
+</div>
+
+<button id="pwa-install-fab" type="button" title="התקן כאפליקציה" style="display:none;position:fixed;bottom:20px;left:16px;background:#7c3aed;color:#fff;width:52px;height:52px;border-radius:26px;border:none;box-shadow:0 4px 16px rgba(124,58,237,0.4);font-size:22px;cursor:pointer;z-index:99997;-webkit-appearance:none;">📥</button>
+
+<div id="pwa-manual-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
+  <div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:400px;direction:rtl;color:#1a1a2e;max-height:85vh;overflow-y:auto;">
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="font-size:40px;">📥</div>
+      <h2 style="margin:6px 0 0;color:#7c3aed;font-size:18px;">התקנת האפליקציה</h2>
+    </div>
+    <div id="pwa-manual-content" style="font-size:13px;line-height:1.6;color:#444;"></div>
+    <div style="margin-top:14px;text-align:center;">
+      <button id="pwa-manual-close" type="button" style="padding:10px 28px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;-webkit-appearance:none;">הבנתי</button>
+    </div>
+  </div>
+</div>
 
 <main>
 
@@ -450,8 +480,164 @@ if (!SpeechRecognitionCtor) document.getElementById('unsupportedCard').style.dis
 initFirebase();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(function() {});
+  navigator.serviceWorker.register('sw.js').then(function(reg) {
+    setInterval(function() { reg.update().catch(function() {}); }, 30 * 1000);
+  }).catch(function() {});
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Auto-update — polls the live GitHub Pages HTML for a newer version
+// string and, if found, shows a countdown overlay and force-reloads.
+// Same mechanism as the GalilApp mobile app — no manual refresh needed.
+// ═══════════════════════════════════════════════════════════════════
+function _getCurrentMobileVersion() {
+  try {
+    var m = document.querySelector('.home-sub');
+    var match = m && m.textContent.match(/v(\d+\.\d+\.\d+)/);
+    return match ? match[1] : null;
+  } catch (e) { return null; }
+}
+
+function _performMobileAutoUpdate(currentVersion, remoteVersion) {
+  if (document.getElementById('auto-update-overlay')) return;
+  var overlay = document.createElement('div');
+  overlay.id = 'auto-update-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,0.85);z-index:999999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML =
+    '<div style="background:#fff;border-radius:16px;padding:28px 30px;max-width:380px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.4);direction:rtl;font-family:inherit;margin:20px;">' +
+      '<div style="font-size:44px;margin-bottom:14px;">🔄</div>' +
+      '<div style="font-size:20px;font-weight:700;color:#0f172a;margin-bottom:8px;">גרסה חדשה זמינה</div>' +
+      '<div style="font-size:14px;color:#64748b;margin-bottom:18px;">v' + currentVersion + ' → <b style="color:#7c3aed;">v' + remoteVersion + '</b></div>' +
+      '<div style="font-size:14px;color:#0f172a;margin-bottom:20px;">האפליקציה תתרענן בעוד <b id="auto-update-countdown" style="color:#dc2626;">3</b> שניות</div>' +
+      '<button id="auto-update-now-btn" style="background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:10px 22px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">⚡ עדכן עכשיו</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  function doReload() {
+    var p = Promise.resolve();
+    if ('caches' in window) {
+      p = caches.keys().then(function(names) { return Promise.all(names.map(function(n) { return caches.delete(n); })); }).catch(function() {});
+    }
+    p = p.then(function() {
+      if (navigator.serviceWorker) {
+        return navigator.serviceWorker.getRegistrations().then(function(regs) {
+          return Promise.all(regs.map(function(r) { return r.unregister(); }));
+        }).catch(function() {});
+      }
+    });
+    p.then(function() {
+      window.location.replace(location.pathname + '?_updated=' + Date.now());
+    });
+  }
+
+  var btn = document.getElementById('auto-update-now-btn');
+  if (btn) btn.onclick = doReload;
+  var sec = 3;
+  var t = setInterval(function() {
+    sec--;
+    var el = document.getElementById('auto-update-countdown');
+    if (el) el.textContent = sec;
+    if (sec <= 0) { clearInterval(t); doReload(); }
+  }, 1000);
+}
+
+function _checkForMobileVersionUpdate() {
+  var currentVersion = _getCurrentMobileVersion();
+  if (!currentVersion || document.getElementById('auto-update-overlay')) return;
+  fetch(location.origin + location.pathname + '?_check=' + Date.now(), { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+    .then(function(resp) { if (!resp.ok) throw new Error('fetch failed'); return resp.text(); })
+    .then(function(html) {
+      var match = html.match(/class="home-sub"[^>]*>v(\d+\.\d+\.\d+)/);
+      if (!match) return;
+      var remoteVersion = match[1];
+      if (remoteVersion === currentVersion) return;
+      var cmp = function(a, b) {
+        var pa = a.split('.').map(Number), pb = b.split('.').map(Number);
+        for (var k = 0; k < 3; k++) { if ((pa[k] || 0) !== (pb[k] || 0)) return (pa[k] || 0) - (pb[k] || 0); }
+        return 0;
+      };
+      if (cmp(remoteVersion, currentVersion) > 0) _performMobileAutoUpdate(currentVersion, remoteVersion);
+    })
+    .catch(function() {});
+}
+
+setTimeout(function() {
+  _checkForMobileVersionUpdate();
+  setInterval(_checkForMobileVersionUpdate, 30 * 1000);
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) setTimeout(_checkForMobileVersionUpdate, 500);
+  });
+}, 2000);
+
+// ═══════════════════════════════════════════════════════════════════
+// PWA install prompt — banner + FAB, with manual fallback instructions
+// ═══════════════════════════════════════════════════════════════════
+(function() {
+  var deferredPrompt = null;
+  var banner = document.getElementById('pwa-install-banner');
+  var installBtn = document.getElementById('pwa-install-btn');
+  var dismissBtn = document.getElementById('pwa-dismiss-btn');
+  var fab = document.getElementById('pwa-install-fab');
+  var manualOverlay = document.getElementById('pwa-manual-overlay');
+  var manualContent = document.getElementById('pwa-manual-content');
+  var manualClose = document.getElementById('pwa-manual-close');
+  var DISMISS_KEY = 'meetingMinutes_pwaDismissedAt';
+
+  function recentlyDismissed() {
+    try {
+      var t = localStorage.getItem(DISMISS_KEY);
+      if (!t) return false;
+      return (Date.now() - parseInt(t, 10)) / (1000 * 60 * 60 * 24) < 7;
+    } catch (e) { return false; }
+  }
+  function isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+  function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
+
+  function showManualInstructions() {
+    var instructions = isIOS()
+      ? '<p>באייפון:</p><ol style="padding-right:18px;margin:10px 0;"><li>לחצו על כפתור <strong>השיתוף</strong> (ריבוע עם חץ)</li><li>גללו ובחרו <strong>"הוסף למסך הבית"</strong></li><li>לחצו <strong>"הוסף"</strong></li></ol>'
+      : '<p>בדפדפן Chrome:</p><ol style="padding-right:18px;margin:10px 0;"><li>לחצו על <strong>3 הנקודות</strong> בפינה</li><li>בחרו <strong>"הוסף למסך הבית"</strong> או <strong>"התקן את האפליקציה"</strong></li><li>אשרו</li></ol>';
+    if (manualContent) manualContent.innerHTML = instructions;
+    if (manualOverlay) manualOverlay.style.display = 'flex';
+  }
+
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (banner && !recentlyDismissed() && !isStandalone()) setTimeout(function() { banner.style.display = 'block'; }, 5000);
+    if (fab && !isStandalone()) fab.style.display = 'flex';
+  });
+
+  if (fab && !isStandalone()) {
+    setTimeout(function() { fab.style.display = 'flex'; }, 7000);
+    fab.addEventListener('click', function() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(r) { if (r.outcome === 'accepted' && fab) fab.style.display = 'none'; deferredPrompt = null; });
+      } else { showManualInstructions(); }
+    });
+  }
+  if (installBtn) {
+    installBtn.addEventListener('click', function() {
+      banner.style.display = 'none';
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(r) { if (r.outcome === 'accepted' && fab) fab.style.display = 'none'; deferredPrompt = null; });
+      } else { showManualInstructions(); }
+    });
+  }
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', function() {
+      banner.style.display = 'none';
+      try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch (e) {}
+    });
+  }
+  if (manualClose) manualClose.addEventListener('click', function() { manualOverlay.style.display = 'none'; });
+  window.addEventListener('appinstalled', function() { if (banner) banner.style.display = 'none'; if (fab) fab.style.display = 'none'; });
+  if (isStandalone() && fab) fab.style.display = 'none';
+})();
 </script>
 </body>
 </html>
