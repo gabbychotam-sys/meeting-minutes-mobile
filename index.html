@@ -113,7 +113,7 @@
 <main>
 
   <div class="card" id="unsupportedCard" style="display:none;">
-    <div class="warn">⚠️ תמלול קולי חי <b>לא עובד באייפון בשום דפדפן</b> (מגבלת מערכת ההפעלה של אפל). האפליקציה תעבוד רק להצגת נושאים וסיכומים באייפון — להקלטה יש לפתוח את הדף הזה ב-<b>Chrome</b> על מחשב או על טלפון אנדרואיד.</div>
+    <div class="warn">⚠️ הדפדפן הזה לא תומך בתמלול קולי חי. אפשר עדיין להשתמש באפליקציה להצגת נושאים וסיכומים.</div>
   </div>
 
   <!-- Agenda for next meeting -->
@@ -300,11 +300,10 @@ document.getElementById('agendaInput').addEventListener('keydown', function(e) {
 // Speech recognition helper
 // ═══════════════════════════════════════════════════════════════════
 var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-// iOS forces every browser (including "Chrome") onto WebKit, which never implements
-// live speech recognition — some iOS versions still expose a non-functional stub
-// constructor, so check the platform explicitly rather than trusting feature detection alone.
+// iOS Safari's support for this is unofficial and inconsistent (undocumented, varies by
+// iOS version) — not a hard platform block. Feature-detect only; don't assume it's broken.
 var _isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-var canUseSpeechRecognition = !!SpeechRecognitionCtor && !_isIOSDevice;
+var canUseSpeechRecognition = !!SpeechRecognitionCtor;
 
 function newRecognizer() {
   var r = new SpeechRecognitionCtor();
@@ -321,7 +320,7 @@ var voiceTopicActive = false;
 var voiceTopicFinalText = '';
 
 document.getElementById('voiceTopicBtn').addEventListener('click', function() {
-  if (!canUseSpeechRecognition) { showToast(_isIOSDevice ? 'תמלול קולי לא עובד באייפון — יש לפתוח במחשב או באנדרואיד' : 'יש לפתוח ב-Chrome'); return; }
+  if (!canUseSpeechRecognition) { showToast('יש לפתוח ב-Chrome'); return; }
   var btn = document.getElementById('voiceTopicBtn');
   if (voiceTopicActive) {
     // manual stop — set the flag BEFORE stop() so onend finalizes instead of auto-restarting
@@ -341,7 +340,9 @@ document.getElementById('voiceTopicBtn').addEventListener('click', function() {
   };
   voiceTopicRec.onend = function() {
     // Chrome may cut the connection on silence even while we still want to listen — restart seamlessly.
-    if (voiceTopicActive) { try { voiceTopicRec.start(); return; } catch (e) {} }
+    // A short delay before restarting matters on iOS Safari's flakier implementation, which can
+    // silently fail to restart if start() is called synchronously inside onend.
+    if (voiceTopicActive) { setTimeout(function() { if (voiceTopicActive) { try { voiceTopicRec.start(); } catch (e) {} } }, 300); return; }
     btn.textContent = '🎙️ הוסף נושא בהקלטה קולית';
     if (voiceTopicFinalText.trim()) {
       document.getElementById('voiceTopicText').value = voiceTopicFinalText.trim();
@@ -472,7 +473,7 @@ function beginNewMeetingSetup() {
 }
 
 document.getElementById('startMeetingBtn').addEventListener('click', function() {
-  if (!canUseSpeechRecognition) { showToast(_isIOSDevice ? 'תמלול קולי לא עובד באייפון — יש לפתוח במחשב או באנדרואיד' : 'יש לפתוח ב-Chrome'); return; }
+  if (!canUseSpeechRecognition) { showToast('יש לפתוח ב-Chrome'); return; }
   beginNewMeetingSetup();
 });
 
@@ -531,9 +532,19 @@ function appendSegment(topic, speaker, text) {
 }
 
 function startTopicRecording(topicId) {
-  if (!canUseSpeechRecognition) { showToast(_isIOSDevice ? 'תמלול קולי לא עובד באייפון — יש לפתוח במחשב או באנדרואיד' : 'יש לפתוח ב-Chrome'); return; }
+  if (!canUseSpeechRecognition) { showToast('יש לפתוח ב-Chrome'); return; }
   if (recordingTopicId === topicId) return;
-  if (recordingTopicId) stopTopicRecording();
+  if (recordingTopicId) {
+    // switching topics — give the previous recognizer a moment to actually release
+    // before starting a new one (iOS's implementation can misbehave on rapid switches)
+    stopTopicRecording();
+    setTimeout(function() { actuallyStartTopicRecording(topicId); }, 300);
+  } else {
+    actuallyStartTopicRecording(topicId);
+  }
+}
+
+function actuallyStartTopicRecording(topicId) {
   recordingTopicId = topicId;
   activeSpeaker = null;
   topicStartTs = Date.now();
@@ -551,7 +562,8 @@ function startTopicRecording(topicId) {
     renderActiveTopics(interim);
   };
   meetingRec.onend = function() {
-    if (recordingTopicId === topicId) { try { meetingRec.start(); } catch (e) {} }
+    // A short delay before restarting matters on iOS Safari's flakier implementation.
+    if (recordingTopicId === topicId) { setTimeout(function() { if (recordingTopicId === topicId) { try { meetingRec.start(); } catch (e) {} } }, 300); }
   };
   meetingRec.onerror = function(e) {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
