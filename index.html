@@ -76,7 +76,7 @@
 <body>
 
 <header>
-  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.5.0</span></h1>
+  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.6.0</span></h1>
   <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
 </header>
 
@@ -168,14 +168,16 @@
       <button class="btn-ghost" style="width:100%;margin-top:8px;" id="cancelSetupBtn">ביטול</button>
     </div>
 
-    <!-- Stage 2: active recording (per topic) -->
+    <!-- Stage 2: active recording (whole meeting, split into topics afterward) -->
     <div id="stageActive" style="display:none;">
-      <div id="activeTopics"></div>
+      <div class="timer" id="timerDisplay">00:00</div>
+      <div id="activeSpeakerChips" style="margin-top:6px;"></div>
+      <div class="live-transcript" id="liveTranscript" style="margin-top:10px;"></div>
       <div class="row">
-        <input type="text" id="activeTopicInput" placeholder="הוסיפו נושא נוסף באמצע הישיבה...">
+        <input type="text" id="activeTopicInput" placeholder="הוסיפו נושא נוסף (ייכלל בסיכום)...">
         <button class="btn-ghost" id="activeTopicAdd">הוסף</button>
       </div>
-      <button class="btn-big btn-stop" id="finishMeetingBtn" style="margin-top:16px;">✅ סיים ישיבה וסכם</button>
+      <button class="btn-big btn-stop" id="finishMeetingBtn" style="margin-top:16px;">⏹️ עצור וסכם ישיבה</button>
     </div>
 
     <!-- Stage 3: review before save -->
@@ -370,14 +372,17 @@ document.getElementById('voiceTopicCancel').addEventListener('click', function()
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// Meeting recording — setup → per-topic recording with speaker tags → review
+// Meeting recording — setup → ONE continuous recording for the whole
+// meeting → the transcript is automatically split into the pre-defined
+// topics afterward (not recorded per-topic; Gabi wants it this way).
 // ═══════════════════════════════════════════════════════════════════
-var meeting = null;            // { title, participants:[], topics:[{id,name,segments:[{speaker,text}]}] }
-var recordingTopicId = null;   // topic currently being recorded (drives auto-restart on silence cutoff)
+var meeting = null;            // { title, participants:[], topics:[{id,name,agendaKey}] }
+var isRecording = false;
 var activeSpeaker = null;      // speaker tag applied to newly finalized transcript chunks
 var meetingRec = null;
-var topicStartTs = 0;
-var topicTimerHandle = null;
+var meetingSegments = [];      // [{speaker,text}] whole-meeting chronological log
+var recStartTs = 0;
+var recTimerHandle = null;
 
 var RECENTS_KEY = 'mm_recentParticipants';
 function getRecentParticipants() {
@@ -462,7 +467,7 @@ function beginNewMeetingSetup() {
     title: defaultTitle(),
     participants: [],
     // agendaKey is kept so a saved meeting can clear these items out of the live agenda (fix: stale topics lingering)
-    topics: agendaCache.map(function(a) { return { id: uid(), name: a.text, segments: [], agendaKey: a.key }; })
+    topics: agendaCache.map(function(a) { return { id: uid(), name: a.text, agendaKey: a.key }; })
   };
   document.getElementById('setupTitle').value = meeting.title;
   renderChips('setupParticipants', meeting.participants, true, removeSetupParticipant);
@@ -500,7 +505,7 @@ document.getElementById('setupTopicAdd').addEventListener('click', function() {
   var inp = document.getElementById('setupTopicInput');
   var name = inp.value.trim();
   if (!name) return;
-  meeting.topics.push({ id: uid(), name: name, segments: [] });
+  meeting.topics.push({ id: uid(), name: name });
   inp.value = '';
   renderSetupTopics();
 });
@@ -510,158 +515,177 @@ document.getElementById('setupTopicInput').addEventListener('keydown', function(
 
 document.getElementById('beginMeetingBtn').addEventListener('click', function() {
   meeting.title = document.getElementById('setupTitle').value.trim() || defaultTitle();
-  if (!meeting.topics.length) meeting.topics.push({ id: uid(), name: 'דיון כללי', segments: [] });
+  if (!meeting.topics.length) meeting.topics.push({ id: uid(), name: 'דיון כללי' });
   document.getElementById('stageSetup').style.display = 'none';
   document.getElementById('stageActive').style.display = 'block';
-  renderActiveTopics();
+  startMeetingRecording();
 });
 
-// ─── active recording, per topic ───
-function findTopic(id) {
-  if (!meeting) return null;
-  for (var i = 0; i < meeting.topics.length; i++) if (meeting.topics[i].id === id) return meeting.topics[i];
-  return null;
-}
-
-function appendSegment(topic, speaker, text) {
+// ─── active recording: one continuous stream for the whole meeting ───
+function appendMeetingSegment(speaker, text) {
   text = text.trim();
   if (!text) return;
-  var last = topic.segments[topic.segments.length - 1];
+  var last = meetingSegments[meetingSegments.length - 1];
   if (last && last.speaker === speaker) last.text = (last.text + ' ' + text).trim();
-  else topic.segments.push({ speaker: speaker, text: text });
+  else meetingSegments.push({ speaker: speaker, text: text });
 }
 
-function startTopicRecording(topicId) {
+function renderActiveSpeakerChips() {
+  var host = document.getElementById('activeSpeakerChips');
+  host.innerHTML = '<span class="speaker-chip' + (activeSpeaker === null ? ' active' : '') + '" data-speaker="__none__">ללא ציון דובר</span>' +
+    meeting.participants.map(function(p) {
+      return '<span class="speaker-chip' + (activeSpeaker === p ? ' active' : '') + '" data-speaker="' + escapeHtml(p) + '">' + escapeHtml(p) + '</span>';
+    }).join('');
+}
+document.getElementById('activeSpeakerChips').addEventListener('click', function(e) {
+  var spkBtn = e.target.closest('[data-speaker]');
+  if (!spkBtn) return;
+  var val = spkBtn.getAttribute('data-speaker');
+  activeSpeaker = val === '__none__' ? null : val;
+  renderActiveSpeakerChips();
+});
+
+function renderLiveTranscript(interimText) {
+  var host = document.getElementById('liveTranscript');
+  host.innerHTML = meetingSegments.map(function(s) { return '<div class="seg-line">' + (s.speaker ? '<b>' + escapeHtml(s.speaker) + ':</b> ' : '') + escapeHtml(s.text) + '</div>'; }).join('') +
+    (interimText ? '<div class="seg-line interim">' + escapeHtml(interimText) + '</div>' : '');
+  host.scrollTop = host.scrollHeight;
+}
+
+function startMeetingRecording() {
   if (!canUseSpeechRecognition) { showToast('יש לפתוח ב-Chrome'); return; }
-  if (recordingTopicId === topicId) return;
-  if (recordingTopicId) {
-    // switching topics — give the previous recognizer a moment to actually release
-    // before starting a new one (iOS's implementation can misbehave on rapid switches)
-    stopTopicRecording();
-    setTimeout(function() { actuallyStartTopicRecording(topicId); }, 300);
-  } else {
-    actuallyStartTopicRecording(topicId);
-  }
-}
-
-function actuallyStartTopicRecording(topicId) {
-  recordingTopicId = topicId;
+  isRecording = true;
   activeSpeaker = null;
-  topicStartTs = Date.now();
+  meetingSegments = [];
+  recStartTs = Date.now();
+  renderActiveSpeakerChips();
+  document.getElementById('liveTranscript').innerHTML = '';
 
   meetingRec = newRecognizer();
   meetingRec.onresult = function(e) {
-    var topic = findTopic(topicId);
-    if (!topic) return;
     var interim = '';
     for (var i = e.resultIndex; i < e.results.length; i++) {
       var t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) appendSegment(topic, activeSpeaker, t);
+      if (e.results[i].isFinal) appendMeetingSegment(activeSpeaker, t);
       else interim += t;
     }
-    renderActiveTopics(interim);
+    renderLiveTranscript(interim);
   };
   meetingRec.onend = function() {
-    // A short delay before restarting matters on iOS Safari's flakier implementation.
-    if (recordingTopicId === topicId) { setTimeout(function() { if (recordingTopicId === topicId) { try { meetingRec.start(); } catch (e) {} } }, 300); }
+    // A short delay before restarting matters on iOS Safari's flakier implementation, which can
+    // silently fail to restart if start() is called synchronously inside onend.
+    if (isRecording) { setTimeout(function() { if (isRecording) { try { meetingRec.start(); } catch (e) {} } }, 300); }
   };
   meetingRec.onerror = function(e) {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      recordingTopicId = null;
+      isRecording = false;
       showToast('אין הרשאת מיקרופון');
-      renderActiveTopics();
     }
   };
   try { meetingRec.start(); } catch (e) {}
-  clearInterval(topicTimerHandle);
-  topicTimerHandle = setInterval(function() { renderActiveTopics(); }, 1000);
-  renderActiveTopics();
+  clearInterval(recTimerHandle);
+  recTimerHandle = setInterval(function() {
+    document.getElementById('timerDisplay').textContent = fmtTime(Date.now() - recStartTs);
+  }, 1000);
 }
-
-function stopTopicRecording() {
-  recordingTopicId = null;
-  clearInterval(topicTimerHandle);
-  if (meetingRec) { try { meetingRec.stop(); } catch (e) {} }
-  renderActiveTopics();
-}
-
-function segmentsElapsedMs(topic) {
-  return recordingTopicId === topic.id ? (Date.now() - topicStartTs) : 0;
-}
-
-function renderActiveTopics(interimText) {
-  var host = document.getElementById('activeTopics');
-  host.innerHTML = meeting.topics.map(function(t) {
-    var isActive = recordingTopicId === t.id;
-    var hasContent = t.segments.length > 0;
-    var status = isActive ? '⏺ מקליט... ' + fmtTime(Date.now() - topicStartTs)
-               : hasContent ? '✅ הוקלט'
-               : '⏳ טרם הוקלט';
-    var html = '<div class="topic-card' + (isActive ? ' recording' : '') + '">' +
-      '<div class="thead"><div><div class="tname">' + escapeHtml(t.name) + '</div><div class="tstatus">' + status + '</div></div>' +
-      '<button class="btn-ghost rec-btn" data-rec="' + t.id + '">' + (isActive ? '⏹️ עצור' : '🎙️ הקלט') + '</button></div>';
-
-    if (isActive) {
-      html += '<div style="margin-top:10px;">' +
-        '<span class="speaker-chip' + (activeSpeaker === null ? ' active' : '') + '" data-speaker="__none__">ללא ציון דובר</span>' +
-        meeting.participants.map(function(p) {
-          return '<span class="speaker-chip' + (activeSpeaker === p ? ' active' : '') + '" data-speaker="' + escapeHtml(p) + '">' + escapeHtml(p) + '</span>';
-        }).join('') +
-        '</div>';
-      html += '<div class="live-transcript" style="margin-top:8px;">' +
-        t.segments.map(function(s) { return '<div class="seg-line">' + (s.speaker ? '<b>' + escapeHtml(s.speaker) + ':</b> ' : '') + escapeHtml(s.text) + '</div>'; }).join('') +
-        (interimText ? '<div class="seg-line interim">' + escapeHtml(interimText) + '</div>' : '') +
-        '</div>';
-    }
-    html += '</div>';
-    return html;
-  }).join('');
-}
-
-document.getElementById('activeTopics').addEventListener('click', function(e) {
-  var recBtn = e.target.closest('[data-rec]');
-  if (recBtn) {
-    var id = recBtn.getAttribute('data-rec');
-    if (recordingTopicId === id) stopTopicRecording(); else startTopicRecording(id);
-    return;
-  }
-  var spkBtn = e.target.closest('[data-speaker]');
-  if (spkBtn) {
-    var val = spkBtn.getAttribute('data-speaker');
-    activeSpeaker = val === '__none__' ? null : val;
-    renderActiveTopics();
-  }
-});
 
 document.getElementById('activeTopicAdd').addEventListener('click', function() {
   var inp = document.getElementById('activeTopicInput');
   var name = inp.value.trim();
   if (!name) return;
-  meeting.topics.push({ id: uid(), name: name, segments: [] });
+  meeting.topics.push({ id: uid(), name: name });
   inp.value = '';
-  renderActiveTopics();
+  showToast('הנושא "' + name + '" יתווסף לסיכום בסוף');
 });
 document.getElementById('activeTopicInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') document.getElementById('activeTopicAdd').click();
 });
 
-// ─── finish meeting → summarize each topic → review ───
-document.getElementById('finishMeetingBtn').addEventListener('click', function() {
-  if (recordingTopicId) stopTopicRecording();
+// ─── splits the whole-meeting transcript into the pre-defined topics ───
+// Heuristic: break the transcript into sentence-level units (segments alone are
+// too coarse — one speaker's monologue can cover several agenda items and would
+// otherwise look like one indivisible block), then for each topic in agenda order
+// find the first unit (searching forward from the previous topic's match) whose
+// WORDS exactly contain one of its keywords. Word-exact matching matters: naive
+// substring search matches short keywords inside unrelated words (e.g. "בו" inside
+// "בואו"). Assumes the meeting roughly follows its agenda order — not perfect NLP,
+// consistent with the free/basic summarizer already in use.
+function splitSegmentsByTopics(allSegments, topics) {
+  var units = []; // sentence-level {speaker, text}, finer-grained than the raw segments
+  allSegments.forEach(function(seg) {
+    var sentences = seg.text.split(/(?<=[.!?])\s+|\n+/).map(function(s) { return s.trim(); }).filter(Boolean);
+    if (!sentences.length) sentences = [seg.text];
+    sentences.forEach(function(s) { units.push({ speaker: seg.speaker, text: s }); });
+  });
 
-  var anyContent = meeting.topics.some(function(t) { return t.segments.length > 0; });
-  if (!anyContent) { showToast('לא זוהה דיבור באף נושא'); return; }
+  var stopSet = {};
+  STOPWORDS.forEach(function(w) { stopSet[w] = true; });
+  function keywords(name) {
+    return name.replace(/[^֐-׿a-zA-Z0-9\s]/g, '').split(/\s+/).filter(function(w) { return w && w.length > 2 && !stopSet[w]; });
+  }
+  var searchFrom = 0;
+  var found = []; // [{ti, b}] in topic order, only topics that matched (b = unit index)
+  topics.forEach(function(t, ti) {
+    var kws = keywords(t.name);
+    var foundAt = -1;
+    if (kws.length) {
+      for (var i = searchFrom; i < units.length; i++) {
+        // substring match (not exact-word) — Hebrew prefixes ("תקציב" → "התקציב") would
+        // break exact matching; the length>=3 keyword floor above is what keeps this safe
+        // from short-keyword false positives (e.g. "בו" matching inside "בואו").
+        var unitText = units[i].text;
+        if (kws.some(function(k) { return unitText.indexOf(k) !== -1; })) { foundAt = i; break; }
+      }
+    }
+    if (foundAt !== -1) { found.push({ ti: ti, b: foundAt }); searchFrom = foundAt + 1; }
+  });
+
+  var sliced = topics.map(function() { return []; }); // per-topic array of units
+  found.sort(function(a, b) { return a.b - b.b; });
+
+  if (!found.length) {
+    if (sliced.length) sliced[0] = units.slice(); // nothing matched — everything under the first topic
+  } else {
+    for (var fi = 0; fi < found.length; fi++) {
+      var startIdx = fi === 0 ? 0 : found[fi].b; // content before the first match still counts toward it
+      var endIdx = fi + 1 < found.length ? found[fi + 1].b : units.length;
+      sliced[found[fi].ti] = units.slice(startIdx, endIdx);
+    }
+  }
+
+  // re-merge consecutive same-speaker sentence units back into display-ready segments
+  return topics.map(function(t, ti) {
+    var segs = [];
+    sliced[ti].forEach(function(u) {
+      var last = segs[segs.length - 1];
+      if (last && last.speaker === u.speaker) last.text = (last.text + ' ' + u.text).trim();
+      else segs.push({ speaker: u.speaker, text: u.text });
+    });
+    return { name: t.name, segments: segs };
+  });
+}
+
+// ─── finish meeting → split transcript by topic → summarize each → review ───
+document.getElementById('finishMeetingBtn').addEventListener('click', function() {
+  isRecording = false;
+  clearInterval(recTimerHandle);
+  if (meetingRec) { try { meetingRec.stop(); } catch (e) {} }
+
+  if (!meetingSegments.length) { showToast('לא זוהה דיבור בהקלטה'); return; }
 
   document.getElementById('stageActive').style.display = 'none';
   document.getElementById('reviewTitle').value = meeting.title;
   document.getElementById('reviewDate').value = todayStr();
   renderChips('reviewParticipants', meeting.participants, false);
 
+  var splitTopics = splitSegmentsByTopics(meetingSegments, meeting.topics);
+  meeting._splitTopics = splitTopics;
+
   var listHost = document.getElementById('reviewTopicsList');
   listHost.innerHTML = '';
-  meeting.topics.forEach(function(t, i) {
+  splitTopics.forEach(function(t, i) {
     var fullText = t.segments.map(function(s) { return s.text; }).join(' ');
-    var bullets = fullText.trim() ? summarize(fullText).map(function(s) { return '• ' + s; }).join('\n') : '(אין תוכן בנושא זה)';
+    var bullets = fullText.trim() ? summarize(fullText).map(function(s) { return '• ' + s; }).join('\n') : '(לא זוהה תוכן ששייך לנושא זה)';
     var block = document.createElement('div');
     block.className = 'topic-summary-block';
     block.innerHTML =
@@ -681,7 +705,8 @@ document.getElementById('saveSummaryBtn').addEventListener('click', function() {
   var title = document.getElementById('reviewTitle').value.trim() || defaultTitle();
   var date = document.getElementById('reviewDate').value.trim() || todayStr();
   var summaryInputs = document.querySelectorAll('[data-topic-summary]');
-  var topicsOut = meeting.topics.map(function(t, i) {
+  var splitTopics = meeting._splitTopics || [];
+  var topicsOut = splitTopics.map(function(t, i) {
     return { name: t.name, segments: t.segments, summary: summaryInputs[i] ? summaryInputs[i].value.trim() : '' };
   });
   fbDb.ref('meetings/summaries').push({
