@@ -25,19 +25,21 @@
   .del-btn { background:none; border:none; color:#c0392b; font-size:16px; cursor:pointer; padding:4px 8px; }
   .empty { color:#999; font-size:13px; padding:6px 2px; }
   .row { display:flex; gap:8px; margin-top:10px; }
+  .lbl { font-size:13px; color:#666; margin:10px 0 4px; }
+  .lbl:first-child { margin-top:0; }
   input[type=text], textarea { width:100%; border:1px solid #ddd; border-radius:10px; padding:10px 12px; font-size:14px; font-family:inherit; direction:rtl; }
   textarea { resize:vertical; min-height:70px; }
   button { font-family:inherit; cursor:pointer; border:none; border-radius:10px; }
   .btn-primary { background:#0f3460; color:#fff; padding:11px 16px; font-size:14px; }
   .btn-primary:disabled { opacity:.5; }
   .btn-ghost { background:#eef1f8; color:#0f3460; padding:11px 14px; font-size:14px; }
-  .btn-big { width:100%; padding:18px; font-size:17px; font-weight:600; border-radius:14px; display:flex; align-items:center; justify-content:center; gap:10px; }
+  .btn-big { width:100%; padding:16px; font-size:16px; font-weight:600; border-radius:14px; display:flex; align-items:center; justify-content:center; gap:10px; }
   .btn-record { background:linear-gradient(135deg,#eb5757,#c0392b); color:#fff; }
   .btn-stop { background:#333; color:#fff; }
   .pulse { width:12px; height:12px; border-radius:50%; background:#fff; animation:pulse 1.1s infinite; }
   @keyframes pulse { 0%{opacity:1;transform:scale(1);} 50%{opacity:.4;transform:scale(1.4);} 100%{opacity:1;transform:scale(1);} }
-  .timer { text-align:center; font-size:32px; font-weight:700; color:#0f3460; margin:10px 0; font-variant-numeric:tabular-nums; }
-  .live-transcript { background:#f7f8fb; border-radius:10px; padding:10px; max-height:180px; overflow-y:auto; font-size:13px; line-height:1.6; color:#333; white-space:pre-wrap; }
+  .timer { text-align:center; font-size:24px; font-weight:700; color:#0f3460; margin:6px 0; font-variant-numeric:tabular-nums; }
+  .live-transcript { background:#f7f8fb; border-radius:10px; padding:10px; max-height:150px; overflow-y:auto; font-size:12.5px; line-height:1.6; color:#333; }
   .interim { color:#999; }
   .summary-item { background:#fff; border:1px solid #e5e5ee; border-radius:10px; padding:12px; margin-bottom:10px; cursor:pointer; }
   .summary-item .date { font-weight:700; color:#0f3460; font-size:14px; }
@@ -50,14 +52,30 @@
   .toast { position:fixed; bottom:16px; right:16px; left:16px; max-width:488px; margin:0 auto; background:#1a1a2e; color:#fff; padding:12px 16px; border-radius:10px; font-size:13px; z-index:300; box-shadow:0 4px 16px rgba(0,0,0,.3); opacity:0; transform:translateY(20px); transition:.25s; pointer-events:none; }
   .toast.show { opacity:1; transform:translateY(0); }
   .bullets { padding-inline-start:20px; margin:0; font-size:13px; line-height:1.8; }
-  .transcript-full { white-space:pre-wrap; font-size:12.5px; color:#444; background:#f7f8fb; border-radius:10px; padding:10px; margin-top:8px; max-height:260px; overflow-y:auto; }
+  .transcript-full { font-size:12.5px; color:#444; background:#f7f8fb; border-radius:10px; padding:10px; margin-top:8px; max-height:260px; overflow-y:auto; }
   details summary { cursor:pointer; font-size:12px; color:#0f3460; margin-top:6px; }
+  .chip { display:inline-flex; align-items:center; gap:5px; background:#eef1f8; color:#0f3460; padding:6px 6px 6px 12px; border-radius:16px; font-size:12.5px; margin:3px 3px 3px 0; }
+  .chip button { background:none; border:none; color:#c0392b; font-size:14px; cursor:pointer; padding:2px 4px; line-height:1; }
+  .chip-suggest { display:inline-block; background:#fff; border:1px dashed #bbb; color:#666; padding:5px 10px; border-radius:16px; font-size:12px; margin:3px 3px 3px 0; cursor:pointer; }
+  .speaker-chip { display:inline-block; background:#fff; border:1.5px solid #ddd; color:#333; padding:5px 11px; border-radius:16px; font-size:12.5px; margin:3px 3px 3px 0; cursor:pointer; }
+  .speaker-chip.active { background:#0f3460; color:#fff; border-color:#0f3460; }
+  .topic-card { border:1px solid #e5e5ee; border-radius:12px; padding:12px; margin-bottom:10px; }
+  .topic-card.recording { border-color:#c0392b; background:#fff8f7; }
+  .topic-card .thead { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .topic-card .tname { font-weight:600; font-size:14px; color:#0f3460; }
+  .topic-card .tstatus { font-size:11px; color:#999; margin-top:2px; }
+  .topic-card .rec-btn { padding:8px 14px; font-size:12.5px; white-space:nowrap; }
+  .seg-line { font-size:12.5px; margin-bottom:5px; line-height:1.5; }
+  .seg-line b { color:#0f3460; }
+  .topic-summary-block { border-top:1px solid #eee; padding-top:12px; margin-top:12px; }
+  .topic-summary-block:first-child { border-top:none; margin-top:0; padding-top:0; }
+  .topic-summary-block h4 { margin:0 0 6px; font-size:14px; color:#0f3460; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.0.0</span></h1>
+  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.1.0</span></h1>
   <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
 </header>
 
@@ -120,25 +138,56 @@
   <!-- Meeting recording -->
   <div class="card">
     <h2>🎤 הקלטת ישיבה</h2>
+
     <div id="recordIdle">
-      <button class="btn-big btn-record" id="startRecordBtn">🔴 התחל הקלטת ישיבה</button>
+      <button class="btn-big btn-record" id="startMeetingBtn">🔴 התחל ישיבה חדשה</button>
     </div>
-    <div id="recordActive" style="display:none;">
-      <div class="timer" id="timerDisplay">00:00</div>
-      <button class="btn-big btn-stop" id="stopRecordBtn"><span class="pulse"></span> עצור וסכם ישיבה</button>
-      <div class="live-transcript" id="liveTranscript" style="margin-top:12px;"></div>
+
+    <!-- Stage 1: setup -->
+    <div id="stageSetup" style="display:none;">
+      <div class="lbl">כותרת הישיבה:</div>
+      <input type="text" id="setupTitle">
+
+      <div class="lbl">משתתפים:</div>
+      <div id="setupParticipants"></div>
+      <div id="setupParticipantSuggestions"></div>
+      <div class="row">
+        <input type="text" id="setupParticipantInput" placeholder="שם משתתף...">
+        <button class="btn-ghost" id="setupParticipantAdd">הוסף</button>
+      </div>
+
+      <div class="lbl">נושאים לדיון (מהרשימה למעלה, ניתן להסיר או להוסיף):</div>
+      <div id="setupTopics"></div>
+      <div class="row">
+        <input type="text" id="setupTopicInput" placeholder="נושא נוסף...">
+        <button class="btn-ghost" id="setupTopicAdd">הוסף</button>
+      </div>
+
+      <button class="btn-big btn-record" id="beginMeetingBtn" style="margin-top:16px;">▶️ התחל הקלטה</button>
+      <button class="btn-ghost" style="width:100%;margin-top:8px;" id="cancelSetupBtn">ביטול</button>
     </div>
-    <div id="recordReview" style="display:none;margin-top:8px;">
-      <div style="font-size:13px;color:#666;margin-bottom:6px;">תאריך הישיבה:</div>
+
+    <!-- Stage 2: active recording (per topic) -->
+    <div id="stageActive" style="display:none;">
+      <div id="activeTopics"></div>
+      <div class="row">
+        <input type="text" id="activeTopicInput" placeholder="הוסיפו נושא נוסף באמצע הישיבה...">
+        <button class="btn-ghost" id="activeTopicAdd">הוסף</button>
+      </div>
+      <button class="btn-big btn-stop" id="finishMeetingBtn" style="margin-top:16px;">✅ סיים ישיבה וסכם</button>
+    </div>
+
+    <!-- Stage 3: review before save -->
+    <div id="stageReview" style="display:none;">
+      <div class="lbl">כותרת:</div>
+      <input type="text" id="reviewTitle">
+      <div class="lbl">תאריך:</div>
       <input type="text" id="reviewDate">
-      <div style="font-size:13px;color:#666;margin:10px 0 6px;">סיכום (ניתן לערוך):</div>
-      <textarea id="reviewSummary" rows="8"></textarea>
-      <details style="margin-top:8px;">
-        <summary>הצג תמלול מלא</summary>
-        <div class="transcript-full" id="reviewTranscript"></div>
-      </details>
-      <div class="row" style="margin-top:12px;">
-        <button class="btn-primary" style="flex:1;" id="saveSummaryBtn">💾 שמור סיכום</button>
+      <div class="lbl">משתתפים:</div>
+      <div id="reviewParticipants"></div>
+      <div id="reviewTopicsList" style="margin-top:14px;"></div>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn-primary" style="flex:1;" id="saveSummaryBtn">💾 שמור ישיבה</button>
         <button class="btn-ghost" id="discardSummaryBtn">מחק</button>
       </div>
     </div>
@@ -169,6 +218,7 @@ var FB_CONFIG = {
   projectId:   "galil-elyon-vehicles"
 };
 var fbDb = null;
+var agendaCache = []; // [{key, text}]
 
 function setSyncChip(state, text) {
   var dot = document.getElementById('syncDot');
@@ -212,8 +262,9 @@ function renderAgenda(snap) {
   var val = snap.val() || {};
   var keys = Object.keys(val);
   var host = document.getElementById('agendaList');
-  if (!keys.length) { host.innerHTML = '<div class="empty">אין עדיין נושאים...</div>'; return; }
   keys.sort(function(a, b) { return (val[a].ts || 0) - (val[b].ts || 0); });
+  agendaCache = keys.map(function(k) { return { key: k, text: val[k].text }; });
+  if (!keys.length) { host.innerHTML = '<div class="empty">אין עדיין נושאים...</div>'; return; }
   host.innerHTML = '';
   keys.forEach(function(k) {
     var item = val[k];
@@ -297,100 +348,328 @@ document.getElementById('voiceTopicCancel').addEventListener('click', function()
   document.getElementById('voiceTopicText').value = '';
 });
 
-// ─── Full meeting recording ───
+// ═══════════════════════════════════════════════════════════════════
+// Meeting recording — setup → per-topic recording with speaker tags → review
+// ═══════════════════════════════════════════════════════════════════
+var meeting = null;            // { title, participants:[], topics:[{id,name,segments:[{speaker,text}]}] }
+var recordingTopicId = null;   // topic currently being recorded (drives auto-restart on silence cutoff)
+var activeSpeaker = null;      // speaker tag applied to newly finalized transcript chunks
 var meetingRec = null;
-var isRecording = false;
-var finalTranscript = '';
-var recStartTs = 0;
-var timerHandle = null;
+var topicStartTs = 0;
+var topicTimerHandle = null;
 
-document.getElementById('startRecordBtn').addEventListener('click', function() {
+var RECENTS_KEY = 'mm_recentParticipants';
+function getRecentParticipants() {
+  try { return JSON.parse(localStorage.getItem(RECENTS_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveRecentParticipants(list) {
+  try {
+    var existing = getRecentParticipants();
+    list.forEach(function(p) { if (existing.indexOf(p) === -1) existing.unshift(p); });
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(existing.slice(0, 12)));
+  } catch (e) {}
+}
+
+function uid() { return 't' + Date.now() + Math.random().toString(36).slice(2, 7); }
+
+function defaultTitle() {
+  var d = new Date();
+  return 'ישיבה – ' + String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear();
+}
+
+function fmtTime(ms) {
+  var sec = Math.floor(ms / 1000);
+  return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+}
+
+// ─── chip renderers (shared by setup / review) ───
+function renderChips(containerId, list, editable, onRemove) {
+  var host = document.getElementById(containerId);
+  if (!list.length) { host.innerHTML = '<div class="empty">עדיין לא נוספו משתתפים</div>'; return; }
+  host.innerHTML = list.map(function(name, i) {
+    return '<span class="chip">' + escapeHtml(name) + (editable ? '<button data-i="' + i + '">✕</button>' : '') + '</span>';
+  }).join('');
+  if (editable) {
+    host.querySelectorAll('button').forEach(function(btn) {
+      btn.addEventListener('click', function() { onRemove(parseInt(btn.getAttribute('data-i'), 10)); });
+    });
+  }
+}
+
+function renderParticipantSuggestions() {
+  var host = document.getElementById('setupParticipantSuggestions');
+  var recents = getRecentParticipants().filter(function(p) { return meeting.participants.indexOf(p) === -1; });
+  if (!recents.length) { host.innerHTML = ''; return; }
+  host.innerHTML = recents.map(function(name) {
+    return '<span class="chip-suggest" data-name="' + escapeHtml(name) + '">+ ' + escapeHtml(name) + '</span>';
+  }).join('');
+  host.querySelectorAll('.chip-suggest').forEach(function(el) {
+    el.addEventListener('click', function() {
+      meeting.participants.push(el.getAttribute('data-name'));
+      renderChips('setupParticipants', meeting.participants, true, removeSetupParticipant);
+      renderParticipantSuggestions();
+    });
+  });
+}
+
+function removeSetupParticipant(i) {
+  meeting.participants.splice(i, 1);
+  renderChips('setupParticipants', meeting.participants, true, removeSetupParticipant);
+  renderParticipantSuggestions();
+}
+
+function renderSetupTopics() {
+  var host = document.getElementById('setupTopics');
+  if (!meeting.topics.length) { host.innerHTML = '<div class="empty">אין נושאים — יתווסף "דיון כללי" אוטומטית</div>'; return; }
+  host.innerHTML = '';
+  meeting.topics.forEach(function(t, i) {
+    var row = document.createElement('div');
+    row.className = 'topic-row';
+    row.innerHTML = '<span>' + escapeHtml(t.name) + '</span><button class="del-btn" data-i="' + i + '">✕</button>';
+    row.querySelector('.del-btn').addEventListener('click', function() {
+      meeting.topics.splice(i, 1);
+      renderSetupTopics();
+    });
+    host.appendChild(row);
+  });
+}
+
+document.getElementById('startMeetingBtn').addEventListener('click', function() {
   if (!SpeechRecognitionCtor) { showToast('יש לפתוח ב-Chrome'); return; }
-  isRecording = true;
-  finalTranscript = '';
-  recStartTs = Date.now();
+  meeting = {
+    title: defaultTitle(),
+    participants: [],
+    topics: agendaCache.map(function(a) { return { id: uid(), name: a.text, segments: [] }; })
+  };
+  document.getElementById('setupTitle').value = meeting.title;
+  renderChips('setupParticipants', meeting.participants, true, removeSetupParticipant);
+  renderParticipantSuggestions();
+  renderSetupTopics();
   document.getElementById('recordIdle').style.display = 'none';
-  document.getElementById('recordActive').style.display = 'block';
-  document.getElementById('recordReview').style.display = 'none';
-  document.getElementById('liveTranscript').textContent = '';
-  timerHandle = setInterval(updateTimer, 1000);
-  startMeetingRecognition();
+  document.getElementById('stageSetup').style.display = 'block';
 });
 
-function startMeetingRecognition() {
+document.getElementById('cancelSetupBtn').addEventListener('click', function() {
+  meeting = null;
+  document.getElementById('stageSetup').style.display = 'none';
+  document.getElementById('recordIdle').style.display = 'block';
+});
+
+document.getElementById('setupParticipantAdd').addEventListener('click', function() {
+  var inp = document.getElementById('setupParticipantInput');
+  var name = inp.value.trim();
+  if (!name) return;
+  meeting.participants.push(name);
+  inp.value = '';
+  renderChips('setupParticipants', meeting.participants, true, removeSetupParticipant);
+  renderParticipantSuggestions();
+});
+document.getElementById('setupParticipantInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('setupParticipantAdd').click();
+});
+
+document.getElementById('setupTopicAdd').addEventListener('click', function() {
+  var inp = document.getElementById('setupTopicInput');
+  var name = inp.value.trim();
+  if (!name) return;
+  meeting.topics.push({ id: uid(), name: name, segments: [] });
+  inp.value = '';
+  renderSetupTopics();
+});
+document.getElementById('setupTopicInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('setupTopicAdd').click();
+});
+
+document.getElementById('beginMeetingBtn').addEventListener('click', function() {
+  meeting.title = document.getElementById('setupTitle').value.trim() || defaultTitle();
+  if (!meeting.topics.length) meeting.topics.push({ id: uid(), name: 'דיון כללי', segments: [] });
+  document.getElementById('stageSetup').style.display = 'none';
+  document.getElementById('stageActive').style.display = 'block';
+  renderActiveTopics();
+});
+
+// ─── active recording, per topic ───
+function findTopic(id) {
+  if (!meeting) return null;
+  for (var i = 0; i < meeting.topics.length; i++) if (meeting.topics[i].id === id) return meeting.topics[i];
+  return null;
+}
+
+function appendSegment(topic, speaker, text) {
+  text = text.trim();
+  if (!text) return;
+  var last = topic.segments[topic.segments.length - 1];
+  if (last && last.speaker === speaker) last.text = (last.text + ' ' + text).trim();
+  else topic.segments.push({ speaker: speaker, text: text });
+}
+
+function startTopicRecording(topicId) {
+  if (!SpeechRecognitionCtor) { showToast('יש לפתוח ב-Chrome'); return; }
+  if (recordingTopicId === topicId) return;
+  if (recordingTopicId) stopTopicRecording();
+  recordingTopicId = topicId;
+  activeSpeaker = null;
+  topicStartTs = Date.now();
+
   meetingRec = newRecognizer();
   meetingRec.onresult = function(e) {
+    var topic = findTopic(topicId);
+    if (!topic) return;
     var interim = '';
     for (var i = e.resultIndex; i < e.results.length; i++) {
       var t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) finalTranscript += t + ' ';
+      if (e.results[i].isFinal) appendSegment(topic, activeSpeaker, t);
       else interim += t;
     }
-    document.getElementById('liveTranscript').innerHTML = escapeHtml(finalTranscript) + '<span class="interim">' + escapeHtml(interim) + '</span>';
-    document.getElementById('liveTranscript').scrollTop = document.getElementById('liveTranscript').scrollHeight;
+    renderActiveTopics(interim);
   };
   meetingRec.onend = function() {
-    if (isRecording) { try { meetingRec.start(); } catch (e) {} } // browser auto-cuts off after silence — restart seamlessly
+    if (recordingTopicId === topicId) { try { meetingRec.start(); } catch (e) {} }
   };
   meetingRec.onerror = function(e) {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      isRecording = false;
+      recordingTopicId = null;
       showToast('אין הרשאת מיקרופון');
+      renderActiveTopics();
     }
   };
   try { meetingRec.start(); } catch (e) {}
+  clearInterval(topicTimerHandle);
+  topicTimerHandle = setInterval(function() { renderActiveTopics(); }, 1000);
+  renderActiveTopics();
 }
 
-function updateTimer() {
-  var sec = Math.floor((Date.now() - recStartTs) / 1000);
-  var m = String(Math.floor(sec / 60)).padStart(2, '0');
-  var s = String(sec % 60).padStart(2, '0');
-  document.getElementById('timerDisplay').textContent = m + ':' + s;
-}
-
-document.getElementById('stopRecordBtn').addEventListener('click', function() {
-  isRecording = false;
-  clearInterval(timerHandle);
+function stopTopicRecording() {
+  recordingTopicId = null;
+  clearInterval(topicTimerHandle);
   if (meetingRec) { try { meetingRec.stop(); } catch (e) {} }
-  document.getElementById('recordActive').style.display = 'none';
-  document.getElementById('recordIdle').style.display = 'block';
+  renderActiveTopics();
+}
 
-  var transcript = finalTranscript.trim();
-  if (!transcript) { showToast('לא זוהה דיבור בהקלטה'); return; }
+function segmentsElapsedMs(topic) {
+  return recordingTopicId === topic.id ? (Date.now() - topicStartTs) : 0;
+}
 
-  var summaryBullets = summarize(transcript);
+function renderActiveTopics(interimText) {
+  var host = document.getElementById('activeTopics');
+  host.innerHTML = meeting.topics.map(function(t) {
+    var isActive = recordingTopicId === t.id;
+    var hasContent = t.segments.length > 0;
+    var status = isActive ? '⏺ מקליט... ' + fmtTime(Date.now() - topicStartTs)
+               : hasContent ? '✅ הוקלט'
+               : '⏳ טרם הוקלט';
+    var html = '<div class="topic-card' + (isActive ? ' recording' : '') + '">' +
+      '<div class="thead"><div><div class="tname">' + escapeHtml(t.name) + '</div><div class="tstatus">' + status + '</div></div>' +
+      '<button class="btn-ghost rec-btn" data-rec="' + t.id + '">' + (isActive ? '⏹️ עצור' : '🎙️ הקלט') + '</button></div>';
+
+    if (isActive) {
+      html += '<div style="margin-top:10px;">' +
+        '<span class="speaker-chip' + (activeSpeaker === null ? ' active' : '') + '" data-speaker="__none__">ללא ציון דובר</span>' +
+        meeting.participants.map(function(p) {
+          return '<span class="speaker-chip' + (activeSpeaker === p ? ' active' : '') + '" data-speaker="' + escapeHtml(p) + '">' + escapeHtml(p) + '</span>';
+        }).join('') +
+        '</div>';
+      html += '<div class="live-transcript" style="margin-top:8px;">' +
+        t.segments.map(function(s) { return '<div class="seg-line">' + (s.speaker ? '<b>' + escapeHtml(s.speaker) + ':</b> ' : '') + escapeHtml(s.text) + '</div>'; }).join('') +
+        (interimText ? '<div class="seg-line interim">' + escapeHtml(interimText) + '</div>' : '') +
+        '</div>';
+    }
+    html += '</div>';
+    return html;
+  }).join('');
+}
+
+document.getElementById('activeTopics').addEventListener('click', function(e) {
+  var recBtn = e.target.closest('[data-rec]');
+  if (recBtn) {
+    var id = recBtn.getAttribute('data-rec');
+    if (recordingTopicId === id) stopTopicRecording(); else startTopicRecording(id);
+    return;
+  }
+  var spkBtn = e.target.closest('[data-speaker]');
+  if (spkBtn) {
+    var val = spkBtn.getAttribute('data-speaker');
+    activeSpeaker = val === '__none__' ? null : val;
+    renderActiveTopics();
+  }
+});
+
+document.getElementById('activeTopicAdd').addEventListener('click', function() {
+  var inp = document.getElementById('activeTopicInput');
+  var name = inp.value.trim();
+  if (!name) return;
+  meeting.topics.push({ id: uid(), name: name, segments: [] });
+  inp.value = '';
+  renderActiveTopics();
+});
+document.getElementById('activeTopicInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('activeTopicAdd').click();
+});
+
+// ─── finish meeting → summarize each topic → review ───
+document.getElementById('finishMeetingBtn').addEventListener('click', function() {
+  if (recordingTopicId) stopTopicRecording();
+
+  var anyContent = meeting.topics.some(function(t) { return t.segments.length > 0; });
+  if (!anyContent) { showToast('לא זוהה דיבור באף נושא'); return; }
+
+  document.getElementById('stageActive').style.display = 'none';
+  document.getElementById('reviewTitle').value = meeting.title;
   document.getElementById('reviewDate').value = todayStr();
-  document.getElementById('reviewSummary').value = summaryBullets.map(function(s) { return '• ' + s; }).join('\n');
-  document.getElementById('reviewTranscript').textContent = transcript;
-  document.getElementById('recordReview').style.display = 'block';
-  document.getElementById('recordReview').scrollIntoView({ behavior: 'smooth' });
+  renderChips('reviewParticipants', meeting.participants, false);
 
-  window._pendingTranscript = transcript;
+  var listHost = document.getElementById('reviewTopicsList');
+  listHost.innerHTML = '';
+  meeting.topics.forEach(function(t, i) {
+    var fullText = t.segments.map(function(s) { return s.text; }).join(' ');
+    var bullets = fullText.trim() ? summarize(fullText).map(function(s) { return '• ' + s; }).join('\n') : '(אין תוכן בנושא זה)';
+    var block = document.createElement('div');
+    block.className = 'topic-summary-block';
+    block.innerHTML =
+      '<h4>' + escapeHtml(t.name) + '</h4>' +
+      '<textarea rows="4" data-topic-summary="' + i + '">' + escapeHtml(bullets) + '</textarea>' +
+      '<details style="margin-top:6px;"><summary>הצג תמלול (לפי דובר)</summary>' +
+      '<div class="transcript-full">' + (t.segments.length ? t.segments.map(function(s) { return '<div class="seg-line">' + (s.speaker ? '<b>' + escapeHtml(s.speaker) + ':</b> ' : '') + escapeHtml(s.text) + '</div>'; }).join('') : '<i>אין תמלול</i>') + '</div></details>';
+    listHost.appendChild(block);
+  });
+
+  document.getElementById('stageReview').style.display = 'block';
+  document.getElementById('stageReview').scrollIntoView({ behavior: 'smooth' });
 });
 
 document.getElementById('saveSummaryBtn').addEventListener('click', function() {
-  if (!fbDb) return;
+  if (!fbDb || !meeting) return;
+  var title = document.getElementById('reviewTitle').value.trim() || defaultTitle();
   var date = document.getElementById('reviewDate').value.trim() || todayStr();
-  var summary = document.getElementById('reviewSummary').value.trim();
-  var transcript = window._pendingTranscript || '';
+  var summaryInputs = document.querySelectorAll('[data-topic-summary]');
+  var topicsOut = meeting.topics.map(function(t, i) {
+    return { name: t.name, segments: t.segments, summary: summaryInputs[i] ? summaryInputs[i].value.trim() : '' };
+  });
   fbDb.ref('meetings/summaries').push({
+    title: title,
     date: date,
-    summary: summary,
-    transcript: transcript,
+    participants: meeting.participants,
+    topics: topicsOut,
     createdAt: Date.now()
   }).then(function() {
-    showToast('✅ הסיכום נשמר');
-    document.getElementById('recordReview').style.display = 'none';
+    showToast('✅ הישיבה נשמרה');
+    if (meeting.participants.length) saveRecentParticipants(meeting.participants);
+    meeting = null;
+    document.getElementById('stageReview').style.display = 'none';
+    document.getElementById('recordIdle').style.display = 'block';
   }).catch(function(err) { onFbError(err); });
 });
 
 document.getElementById('discardSummaryBtn').addEventListener('click', function() {
-  document.getElementById('recordReview').style.display = 'none';
-  window._pendingTranscript = '';
+  if (!confirm('למחוק את הישיבה שהוקלטה?')) return;
+  meeting = null;
+  document.getElementById('stageReview').style.display = 'none';
+  document.getElementById('recordIdle').style.display = 'block';
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// Past summaries
+// Past summaries — supports both the new {title,participants,topics}
+// shape and legacy {summary,transcript} entries saved before this format.
 // ═══════════════════════════════════════════════════════════════════
 function renderSummaries(snap) {
   var val = snap.val() || {};
@@ -403,8 +682,12 @@ function renderSummaries(snap) {
     var item = val[k];
     var el = document.createElement('div');
     el.className = 'summary-item';
-    el.innerHTML = '<div class="date">📅 ' + escapeHtml(item.date || '') + '</div>' +
-                    '<div class="preview">' + escapeHtml((item.summary || '').replace(/\n/g, ' ')) + '</div>';
+    var title = item.title || ('📅 ' + (item.date || ''));
+    var preview = item.topics
+      ? item.topics.map(function(t) { return t.name; }).join(' · ')
+      : (item.summary || '').replace(/\n/g, ' ');
+    el.innerHTML = '<div class="date">' + escapeHtml(title) + (item.title ? ' · ' + escapeHtml(item.date || '') : '') + '</div>' +
+                    '<div class="preview">' + escapeHtml(preview) + '</div>';
     el.addEventListener('click', function() { openSummaryModal(k, item); });
     host.appendChild(el);
   });
@@ -412,12 +695,25 @@ function renderSummaries(snap) {
 
 function openSummaryModal(key, item) {
   var host = document.getElementById('modalHost');
+  var body;
+  if (item.topics) {
+    body = (item.participants && item.participants.length ? '<div style="margin-bottom:10px;">' + item.participants.map(function(p) { return '<span class="chip">' + escapeHtml(p) + '</span>'; }).join('') + '</div>' : '') +
+      item.topics.map(function(t) {
+        return '<div class="topic-summary-block"><h4>' + escapeHtml(t.name) + '</h4>' +
+          '<div class="bullets">' + escapeHtml(t.summary || '').replace(/\n/g, '<br>') + '</div>' +
+          '<details style="margin-top:6px;"><summary>הצג תמלול</summary><div class="transcript-full">' +
+          (t.segments && t.segments.length ? t.segments.map(function(s) { return '<div class="seg-line">' + (s.speaker ? '<b>' + escapeHtml(s.speaker) + ':</b> ' : '') + escapeHtml(s.text) + '</div>'; }).join('') : '<i>אין תמלול</i>') +
+          '</div></details></div>';
+      }).join('');
+  } else {
+    body = '<div class="bullets">' + escapeHtml(item.summary || '').replace(/\n/g, '<br>') + '</div>' +
+      '<details style="margin-top:10px;"><summary>הצג תמלול מלא</summary><div class="transcript-full">' + escapeHtml(item.transcript || '') + '</div></details>';
+  }
   host.innerHTML =
     '<div class="modal-overlay" id="ov"><div class="modal">' +
-    '<h3>📅 ' + escapeHtml(item.date || '') + '</h3>' +
-    '<div class="bullets">' + escapeHtml(item.summary || '').replace(/\n/g, '<br>') + '</div>' +
-    '<details style="margin-top:10px;"><summary>הצג תמלול מלא</summary>' +
-    '<div class="transcript-full">' + escapeHtml(item.transcript || '') + '</div></details>' +
+    '<h3>' + escapeHtml(item.title || ('📅 ' + (item.date || ''))) + '</h3>' +
+    (item.title ? '<div style="font-size:12px;color:#999;margin-top:-8px;margin-bottom:12px;">📅 ' + escapeHtml(item.date || '') + '</div>' : '') +
+    body +
     '<button class="btn-ghost" style="width:100%;margin-top:14px;color:#c0392b;" id="delSumm">🗑️ מחק סיכום</button>' +
     '<div class="modal-close" id="closeModal">סגור</div>' +
     '</div></div>';
