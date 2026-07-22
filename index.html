@@ -76,7 +76,7 @@
 <body>
 
 <header>
-  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.4.0</span></h1>
+  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.5.0</span></h1>
   <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
 </header>
 
@@ -113,7 +113,7 @@
 <main>
 
   <div class="card" id="unsupportedCard" style="display:none;">
-    <div class="warn">⚠️ הקלטת שמע דורשת דפדפן עדכני עם תמיכה במיקרופון וחיבור מאובטח (HTTPS).</div>
+    <div class="warn">⚠️ תמלול קולי חי <b>לא עובד באייפון בשום דפדפן</b> (מגבלת מערכת ההפעלה של אפל). האפליקציה תעבוד רק להצגת נושאים וסיכומים באייפון — להקלטה יש לפתוח את הדף הזה ב-<b>Chrome</b> על מחשב או על טלפון אנדרואיד.</div>
   </div>
 
   <!-- Agenda for next meeting -->
@@ -297,89 +297,65 @@ document.getElementById('agendaInput').addEventListener('keydown', function(e) {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// Audio recording + Whisper transcription. iOS/WebKit never implements
-// the Web Speech API's SpeechRecognition (in any iOS browser, "Chrome"
-// included, since Apple forces every iOS browser onto WebKit) — so
-// recording raw audio via MediaRecorder (which iOS *does* support) and
-// transcribing it afterward via OpenAI's Whisper API is the only way
-// this works on Gabi's iPhone. The OpenAI key never touches the client —
-// this posts to a small Cloudflare Worker (free tier) that holds the key
-// as a server-side secret and proxies the request to OpenAI.
+// Speech recognition helper
 // ═══════════════════════════════════════════════════════════════════
-var WHISPER_PROXY_URL = "https://meetingminutes-whisper-proxy.nyloft8.workers.dev";
+var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+// iOS forces every browser (including "Chrome") onto WebKit, which never implements
+// live speech recognition — some iOS versions still expose a non-functional stub
+// constructor, so check the platform explicitly rather than trusting feature detection alone.
+var _isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+var canUseSpeechRecognition = !!SpeechRecognitionCtor && !_isIOSDevice;
 
-var canRecordAudio = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
-
-function pickAudioMimeType() {
-  var candidates = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'];
-  for (var i = 0; i < candidates.length; i++) {
-    if (window.MediaRecorder && MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
-  }
-  return '';
-}
-function extForMime(mime) {
-  if (mime.indexOf('mp4') !== -1) return 'mp4';
-  if (mime.indexOf('ogg') !== -1) return 'ogg';
-  return 'webm';
-}
-
-// verbose=false is used for the short quick-topic recording, where only .text is needed
-function transcribeAudio(blob, mimeType, verbose) {
-  var fd = new FormData();
-  fd.append('file', blob, 'audio.' + extForMime(mimeType || ''));
-  fd.append('language', 'he');
-  fd.append('response_format', verbose === false ? 'json' : 'verbose_json');
-  return fetch(WHISPER_PROXY_URL, {
-    method: 'POST',
-    body: fd
-  }).then(function(r) {
-    if (!r.ok) return r.text().then(function(t) { throw new Error('שגיאת שרת (' + r.status + ')'); });
-    return r.json();
-  });
+function newRecognizer() {
+  var r = new SpeechRecognitionCtor();
+  r.lang = 'he-IL';
+  r.continuous = true;
+  r.interimResults = true;
+  return r;
 }
 
 // ─── Quick voice-add of an agenda topic ───
-var voiceTopicRecorder = null;
-var voiceTopicChunks = [];
+var voiceTopicRec = null;
 var voiceTopicActive = false;
 
+var voiceTopicFinalText = '';
+
 document.getElementById('voiceTopicBtn').addEventListener('click', function() {
-  if (!canRecordAudio) { showToast('הדפדפן לא תומך בהקלטת שמע'); return; }
+  if (!canUseSpeechRecognition) { showToast(_isIOSDevice ? 'תמלול קולי לא עובד באייפון — יש לפתוח במחשב או באנדרואיד' : 'יש לפתוח ב-Chrome'); return; }
   var btn = document.getElementById('voiceTopicBtn');
   if (voiceTopicActive) {
+    // manual stop — set the flag BEFORE stop() so onend finalizes instead of auto-restarting
     voiceTopicActive = false;
-    if (voiceTopicRecorder && voiceTopicRecorder.state !== 'inactive') { try { voiceTopicRecorder.stop(); } catch (e) {} }
+    if (voiceTopicRec) { try { voiceTopicRec.stop(); } catch (e) {} }
     return;
   }
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
-    var mime = pickAudioMimeType();
-    voiceTopicRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-    voiceTopicChunks = [];
-    voiceTopicActive = true;
-    btn.textContent = '⏹️ עצור הקלטה (לחצו כשסיימתם)';
-    voiceTopicRecorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) voiceTopicChunks.push(e.data); };
-    voiceTopicRecorder.onstop = function() {
-      stream.getTracks().forEach(function(t) { t.stop(); });
-      btn.textContent = '⏳ מתמלל...';
-      var blob = new Blob(voiceTopicChunks, { type: mime || 'audio/webm' });
-      transcribeAudio(blob, mime, false).then(function(result) {
-        btn.textContent = '🎙️ הוסף נושא בהקלטה קולית';
-        var text = (result.text || '').trim();
-        if (text) {
-          document.getElementById('voiceTopicText').value = text;
-          document.getElementById('voiceTopicReview').style.display = 'block';
-        } else {
-          showToast('לא זוהה דיבור בהקלטה');
-        }
-      }).catch(function(err) {
-        btn.textContent = '🎙️ הוסף נושא בהקלטה קולית';
-        showToast('⚠️ תמלול נכשל: ' + err.message, 6000);
-      });
-    };
-    voiceTopicRecorder.start();
-  }).catch(function(err) {
-    showToast('אין הרשאת מיקרופון');
-  });
+  voiceTopicActive = true;
+  btn.textContent = '⏹️ עצור הקלטה (לחצו כשסיימתם)';
+  voiceTopicFinalText = '';
+  voiceTopicRec = newRecognizer();
+  voiceTopicRec.continuous = true;
+  voiceTopicRec.onresult = function(e) {
+    var t = '';
+    for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    voiceTopicFinalText = t;
+  };
+  voiceTopicRec.onend = function() {
+    // Chrome may cut the connection on silence even while we still want to listen — restart seamlessly.
+    if (voiceTopicActive) { try { voiceTopicRec.start(); return; } catch (e) {} }
+    btn.textContent = '🎙️ הוסף נושא בהקלטה קולית';
+    if (voiceTopicFinalText.trim()) {
+      document.getElementById('voiceTopicText').value = voiceTopicFinalText.trim();
+      document.getElementById('voiceTopicReview').style.display = 'block';
+    }
+  };
+  voiceTopicRec.onerror = function(e) {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      voiceTopicActive = false;
+      btn.textContent = '🎙️ הוסף נושא בהקלטה קולית';
+      showToast('אין הרשאת מיקרופון');
+    }
+  };
+  try { voiceTopicRec.start(); } catch (e) {}
 });
 
 document.getElementById('voiceTopicSave').addEventListener('click', function() {
@@ -396,15 +372,11 @@ document.getElementById('voiceTopicCancel').addEventListener('click', function()
 // Meeting recording — setup → per-topic recording with speaker tags → review
 // ═══════════════════════════════════════════════════════════════════
 var meeting = null;            // { title, participants:[], topics:[{id,name,segments:[{speaker,text}]}] }
-var recordingTopicId = null;   // topic currently being recorded
-var activeSpeaker = null;      // speaker tag applied to the next segment once transcription returns
-var topicRecorder = null;
-var topicChunks = [];
-var topicSpeakerChanges = [];  // [{speaker, atSec}] relative to the current recording session's start
+var recordingTopicId = null;   // topic currently being recorded (drives auto-restart on silence cutoff)
+var activeSpeaker = null;      // speaker tag applied to newly finalized transcript chunks
+var meetingRec = null;
 var topicStartTs = 0;
 var topicTimerHandle = null;
-var pendingStops = 0;          // incremented the instant stop() is called, decremented once onstop fires
-var transcribingTopicIds = {}; // topicId -> true while its audio is uploading/transcribing
 
 var RECENTS_KEY = 'mm_recentParticipants';
 function getRecentParticipants() {
@@ -483,7 +455,7 @@ function renderSetupTopics() {
 }
 
 function beginNewMeetingSetup() {
-  if (!canRecordAudio) return;
+  if (!canUseSpeechRecognition) return;
   if (meeting) return; // a meeting is already being set up / recorded — don't clobber it
   meeting = {
     title: defaultTitle(),
@@ -500,7 +472,7 @@ function beginNewMeetingSetup() {
 }
 
 document.getElementById('startMeetingBtn').addEventListener('click', function() {
-  if (!canRecordAudio) { showToast('הדפדפן לא תומך בהקלטת שמע'); return; }
+  if (!canUseSpeechRecognition) { showToast(_isIOSDevice ? 'תמלול קולי לא עובד באייפון — יש לפתוח במחשב או באנדרואיד' : 'יש לפתוח ב-Chrome'); return; }
   beginNewMeetingSetup();
 });
 
@@ -558,107 +530,64 @@ function appendSegment(topic, speaker, text) {
   else topic.segments.push({ speaker: speaker, text: text });
 }
 
-function speakerAtTime(changes, sec) {
-  var speaker = null;
-  for (var i = 0; i < changes.length; i++) {
-    if (changes[i].atSec <= sec) speaker = changes[i].speaker; else break;
-  }
-  return speaker;
-}
-
 function startTopicRecording(topicId) {
-  if (!canRecordAudio) { showToast('הדפדפן לא תומך בהקלטת שמע'); return; }
+  if (!canUseSpeechRecognition) { showToast(_isIOSDevice ? 'תמלול קולי לא עובד באייפון — יש לפתוח במחשב או באנדרואיד' : 'יש לפתוח ב-Chrome'); return; }
   if (recordingTopicId === topicId) return;
-  if (recordingTopicId) { showToast('יש הקלטה פעילה בנושא אחר — עצרו אותה קודם'); return; }
+  if (recordingTopicId) stopTopicRecording();
+  recordingTopicId = topicId;
+  activeSpeaker = null;
+  topicStartTs = Date.now();
 
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
-    var mime = pickAudioMimeType();
-    topicRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-    topicChunks = [];
-    topicSpeakerChanges = [{ speaker: null, atSec: 0 }];
-    activeSpeaker = null;
-    recordingTopicId = topicId;
-    topicStartTs = Date.now();
-
-    topicRecorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) topicChunks.push(e.data); };
-    topicRecorder.onstop = function() {
-      stream.getTracks().forEach(function(t) { t.stop(); });
-      pendingStops--;
-      var blob = new Blob(topicChunks, { type: mime || 'audio/webm' });
-      handleTopicRecordingStopped(topicId, blob, mime, topicSpeakerChanges.slice());
-    };
-    topicRecorder.start();
-    clearInterval(topicTimerHandle);
-    topicTimerHandle = setInterval(function() { renderActiveTopics(); }, 1000);
-    renderActiveTopics();
-  }).catch(function(err) {
-    showToast('אין הרשאת מיקרופון');
-  });
+  meetingRec = newRecognizer();
+  meetingRec.onresult = function(e) {
+    var topic = findTopic(topicId);
+    if (!topic) return;
+    var interim = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      var t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) appendSegment(topic, activeSpeaker, t);
+      else interim += t;
+    }
+    renderActiveTopics(interim);
+  };
+  meetingRec.onend = function() {
+    if (recordingTopicId === topicId) { try { meetingRec.start(); } catch (e) {} }
+  };
+  meetingRec.onerror = function(e) {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      recordingTopicId = null;
+      showToast('אין הרשאת מיקרופון');
+      renderActiveTopics();
+    }
+  };
+  try { meetingRec.start(); } catch (e) {}
+  clearInterval(topicTimerHandle);
+  topicTimerHandle = setInterval(function() { renderActiveTopics(); }, 1000);
+  renderActiveTopics();
 }
 
 function stopTopicRecording() {
-  clearInterval(topicTimerHandle);
-  if (topicRecorder && topicRecorder.state !== 'inactive') {
-    pendingStops++;
-    topicRecorder.stop(); // onstop fires async — handleTopicRecordingStopped picks up from there
-  }
   recordingTopicId = null;
+  clearInterval(topicTimerHandle);
+  if (meetingRec) { try { meetingRec.stop(); } catch (e) {} }
   renderActiveTopics();
 }
 
-function handleTopicRecordingStopped(topicId, blob, mimeType, changes) {
-  transcribingTopicIds[topicId] = true;
-  renderActiveTopics();
-  transcribeAudio(blob, mimeType, true).then(function(result) {
-    var topic = findTopic(topicId);
-    if (topic) {
-      if (result.segments && result.segments.length) {
-        result.segments.forEach(function(seg) {
-          var text = (seg.text || '').trim();
-          if (text) appendSegment(topic, speakerAtTime(changes, seg.start), text);
-        });
-      } else if (result.text && result.text.trim()) {
-        appendSegment(topic, speakerAtTime(changes, 0), result.text.trim());
-      }
-    }
-    delete transcribingTopicIds[topicId];
-    renderActiveTopics();
-  }).catch(function(err) {
-    delete transcribingTopicIds[topicId];
-    showToast('⚠️ תמלול נכשל: ' + err.message, 6000);
-    renderActiveTopics();
-  });
+function segmentsElapsedMs(topic) {
+  return recordingTopicId === topic.id ? (Date.now() - topicStartTs) : 0;
 }
 
-function anyTranscribing() {
-  return pendingStops > 0 || Object.keys(transcribingTopicIds).length > 0;
-}
-
-function waitForAllTranscriptions() {
-  return new Promise(function(resolve) {
-    (function check() {
-      if (!anyTranscribing()) resolve(); else setTimeout(check, 300);
-    })();
-  });
-}
-
-function renderActiveTopics() {
+function renderActiveTopics(interimText) {
   var host = document.getElementById('activeTopics');
   host.innerHTML = meeting.topics.map(function(t) {
     var isActive = recordingTopicId === t.id;
-    var isTranscribing = !!transcribingTopicIds[t.id];
     var hasContent = t.segments.length > 0;
-    var status = isActive ? '🔴 מקליט... ' + fmtTime(Date.now() - topicStartTs)
-               : isTranscribing ? '⏳ מתמלל...'
+    var status = isActive ? '⏺ מקליט... ' + fmtTime(Date.now() - topicStartTs)
                : hasContent ? '✅ הוקלט'
                : '⏳ טרם הוקלט';
-    var recBtnHtml = isTranscribing
-      ? '<button class="btn-ghost rec-btn" disabled>⏳ מתמלל...</button>'
-      : '<button class="btn-ghost rec-btn" data-rec="' + t.id + '"' + (recordingTopicId && !isActive ? ' disabled' : '') + '>' + (isActive ? '⏹️ עצור' : '🎙️ הקלט') + '</button>';
-
     var html = '<div class="topic-card' + (isActive ? ' recording' : '') + '">' +
       '<div class="thead"><div><div class="tname">' + escapeHtml(t.name) + '</div><div class="tstatus">' + status + '</div></div>' +
-      recBtnHtml + '</div>';
+      '<button class="btn-ghost rec-btn" data-rec="' + t.id + '">' + (isActive ? '⏹️ עצור' : '🎙️ הקלט') + '</button></div>';
 
     if (isActive) {
       html += '<div style="margin-top:10px;">' +
@@ -667,10 +596,9 @@ function renderActiveTopics() {
           return '<span class="speaker-chip' + (activeSpeaker === p ? ' active' : '') + '" data-speaker="' + escapeHtml(p) + '">' + escapeHtml(p) + '</span>';
         }).join('') +
         '</div>';
-    }
-    if (hasContent) {
       html += '<div class="live-transcript" style="margin-top:8px;">' +
         t.segments.map(function(s) { return '<div class="seg-line">' + (s.speaker ? '<b>' + escapeHtml(s.speaker) + ':</b> ' : '') + escapeHtml(s.text) + '</div>'; }).join('') +
+        (interimText ? '<div class="seg-line interim">' + escapeHtml(interimText) + '</div>' : '') +
         '</div>';
     }
     html += '</div>';
@@ -689,7 +617,6 @@ document.getElementById('activeTopics').addEventListener('click', function(e) {
   if (spkBtn) {
     var val = spkBtn.getAttribute('data-speaker');
     activeSpeaker = val === '__none__' ? null : val;
-    if (recordingTopicId) topicSpeakerChanges.push({ speaker: activeSpeaker, atSec: (Date.now() - topicStartTs) / 1000 });
     renderActiveTopics();
   }
 });
@@ -710,18 +637,6 @@ document.getElementById('activeTopicInput').addEventListener('keydown', function
 document.getElementById('finishMeetingBtn').addEventListener('click', function() {
   if (recordingTopicId) stopTopicRecording();
 
-  var btn = document.getElementById('finishMeetingBtn');
-  btn.disabled = true;
-  btn.textContent = '⏳ ממתין לתמלול...';
-
-  waitForAllTranscriptions().then(function() {
-    btn.disabled = false;
-    btn.textContent = '✅ סיים ישיבה וסכם';
-    finishMeetingAfterTranscription();
-  });
-});
-
-function finishMeetingAfterTranscription() {
   var anyContent = meeting.topics.some(function(t) { return t.segments.length > 0; });
   if (!anyContent) { showToast('לא זוהה דיבור באף נושא'); return; }
 
@@ -747,7 +662,7 @@ function finishMeetingAfterTranscription() {
 
   document.getElementById('stageReview').style.display = 'block';
   document.getElementById('stageReview').scrollIntoView({ behavior: 'smooth' });
-}
+});
 
 document.getElementById('saveSummaryBtn').addEventListener('click', function() {
   if (!fbDb || !meeting) return;
@@ -894,7 +809,7 @@ function todayStr() {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
-if (!canRecordAudio) document.getElementById('unsupportedCard').style.display = 'block';
+if (!canUseSpeechRecognition) document.getElementById('unsupportedCard').style.display = 'block';
 initFirebase();
 
 if ('serviceWorker' in navigator) {
