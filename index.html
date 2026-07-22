@@ -41,7 +41,8 @@
   .timer { text-align:center; font-size:24px; font-weight:700; color:#0f3460; margin:6px 0; font-variant-numeric:tabular-nums; }
   .live-transcript { background:#f7f8fb; border-radius:10px; padding:10px; max-height:150px; overflow-y:auto; font-size:12.5px; line-height:1.6; color:#333; }
   .interim { color:#999; }
-  .summary-item { background:#fff; border:1px solid #e5e5ee; border-radius:10px; padding:12px; margin-bottom:10px; cursor:pointer; }
+  .summary-item { background:#fff; border:1px solid #e5e5ee; border-radius:10px; padding:12px; margin-bottom:10px; display:flex; align-items:flex-start; gap:8px; }
+  .summary-item .body { flex:1; cursor:pointer; min-width:0; }
   .summary-item .date { font-weight:700; color:#0f3460; font-size:14px; }
   .summary-item .preview { font-size:12px; color:#666; margin-top:4px; max-height:36px; overflow:hidden; }
   .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200; display:flex; align-items:flex-end; justify-content:center; }
@@ -75,7 +76,7 @@
 <body>
 
 <header>
-  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.2.0</span></h1>
+  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.3.0</span></h1>
   <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
 </header>
 
@@ -113,6 +114,26 @@
 
   <div class="card" id="unsupportedCard" style="display:none;">
     <div class="warn">⚠️ תמלול קולי דורש דפדפן <b>Chrome</b>. אנא פתחו את הדף הזה בכרום.</div>
+  </div>
+
+  <!-- Agenda for next meeting -->
+  <div class="card">
+    <h2>📝 נושאים לישיבה הבאה</h2>
+    <div id="agendaList"><div class="empty">אין עדיין נושאים...</div></div>
+    <div class="row">
+      <input type="text" id="agendaInput" placeholder="הקלידו נושא...">
+      <button class="btn-primary" id="agendaAddBtn">הוסף</button>
+    </div>
+    <div class="row">
+      <button class="btn-ghost" style="width:100%;" id="voiceTopicBtn">🎙️ הוסף נושא בהקלטה קולית</button>
+    </div>
+    <div id="voiceTopicReview" style="display:none;margin-top:10px;">
+      <textarea id="voiceTopicText" rows="2"></textarea>
+      <div class="row">
+        <button class="btn-primary" id="voiceTopicSave">💾 שמור נושא</button>
+        <button class="btn-ghost" id="voiceTopicCancel">ביטול</button>
+      </div>
+    </div>
   </div>
 
   <!-- Meeting recording -->
@@ -169,26 +190,6 @@
       <div class="row" style="margin-top:14px;">
         <button class="btn-primary" style="flex:1;" id="saveSummaryBtn">💾 שמור ישיבה</button>
         <button class="btn-ghost" id="discardSummaryBtn">מחק</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Agenda for next meeting -->
-  <div class="card">
-    <h2>📝 נושאים לישיבה הבאה</h2>
-    <div id="agendaList"><div class="empty">אין עדיין נושאים...</div></div>
-    <div class="row">
-      <input type="text" id="agendaInput" placeholder="הקלידו נושא...">
-      <button class="btn-primary" id="agendaAddBtn">הוסף</button>
-    </div>
-    <div class="row">
-      <button class="btn-ghost" style="width:100%;" id="voiceTopicBtn">🎙️ הוסף נושא בהקלטה קולית</button>
-    </div>
-    <div id="voiceTopicReview" style="display:none;margin-top:10px;">
-      <textarea id="voiceTopicText" rows="2"></textarea>
-      <div class="row">
-        <button class="btn-primary" id="voiceTopicSave">💾 שמור נושא</button>
-        <button class="btn-ghost" id="voiceTopicCancel">ביטול</button>
       </div>
     </div>
   </div>
@@ -264,7 +265,6 @@ function renderAgenda(snap) {
   var host = document.getElementById('agendaList');
   keys.sort(function(a, b) { return (val[a].ts || 0) - (val[b].ts || 0); });
   agendaCache = keys.map(function(k) { return { key: k, text: val[k].text }; });
-  maybeAutoStartMeeting();
   if (!keys.length) { host.innerHTML = '<div class="empty">אין עדיין נושאים...</div>'; return; }
   host.innerHTML = '';
   keys.forEach(function(k) {
@@ -712,9 +712,15 @@ function renderSummaries(snap) {
     var preview = item.topics
       ? item.topics.map(function(t) { return t.name; }).join(' · ')
       : (item.summary || '').replace(/\n/g, ' ');
-    el.innerHTML = '<div class="date">' + escapeHtml(title) + (item.title ? ' · ' + escapeHtml(item.date || '') : '') + '</div>' +
-                    '<div class="preview">' + escapeHtml(preview) + '</div>';
-    el.addEventListener('click', function() { openSummaryModal(k, item); });
+    el.innerHTML = '<div class="body"><div class="date">' + escapeHtml(title) + (item.title ? ' · ' + escapeHtml(item.date || '') : '') + '</div>' +
+                    '<div class="preview">' + escapeHtml(preview) + '</div></div>' +
+                    '<button class="del-btn" title="מחק ישיבה">🗑️</button>';
+    el.querySelector('.body').addEventListener('click', function() { openSummaryModal(k, item); });
+    el.querySelector('.del-btn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (!confirm('למחוק את הישיבה "' + (title.replace(/^📅 /, '')) + '"?')) return;
+      fbDb.ref('meetings/summaries/' + k).remove();
+    });
     host.appendChild(el);
   });
 }
@@ -797,20 +803,6 @@ function todayStr() {
   var d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// Opening the app always jumps straight into setting up a new meeting
-// (fix: previously landed on an idle screen requiring an extra tap).
-// Triggered as soon as the live agenda arrives so topics are pre-filled
-// correctly; a fallback timer covers the case where Firebase is slow/down.
-// ═══════════════════════════════════════════════════════════════════
-var autoStartDone = false;
-function maybeAutoStartMeeting() {
-  if (autoStartDone) return;
-  autoStartDone = true;
-  beginNewMeetingSetup();
-}
-setTimeout(maybeAutoStartMeeting, 3000);
 
 if (!SpeechRecognitionCtor) document.getElementById('unsupportedCard').style.display = 'block';
 initFirebase();
