@@ -1,5 +1,5 @@
 {
-  "version": "1.4.4",
-  "notes": "אפשר להוסיף נושאים חדשים ישירות בתוך ישיבה עתידית (לא רק בזמן היצירה) — כולל הקלטה קולית וניקוי ניסוח לנושא החדש",
-  "zipUrl": "https://gabbychotam-sys.github.io/meeting-minutes-mobile/desktop-updates/%D7%A1%D7%99%D7%9B%D7%95%D7%9E%D7%99-%D7%99%D7%A9%D7%99%D7%91%D7%95%D7%AA-%D7%A2%D7%93%D7%9B%D7%95%D7%9F-1.4.4.zip"
+  "version": "1.4.5",
+  "notes": "תיאור נושא בתוך ישיבה עתידית מקבל עכשיו גם כפתור 🎙️ הקלטה קולית (היה רק ✨ ניקוי ניסוח)",
+  "zipUrl": "https://gabbychotam-sys.github.io/meeting-minutes-mobile/desktop-updates/%D7%A1%D7%99%D7%9B%D7%95%D7%9E%D7%99-%D7%99%D7%A9%D7%99%D7%91%D7%95%D7%AA-%D7%A2%D7%93%D7%9B%D7%95%D7%9F-1.4.5.zip"
 }
