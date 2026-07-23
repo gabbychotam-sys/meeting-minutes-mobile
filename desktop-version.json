@@ -1,5 +1,5 @@
 {
-  "version": "1.4.2",
-  "notes": "כפתור ✨ ניקוי ניסוח מציג עכשיו הודעה — 'הניסוח נוקה' או 'הטקסט כבר נקי' — כדי שיהיה ברור שהכפתור עבד גם כשאין מה לתקן",
-  "zipUrl": "https://gabbychotam-sys.github.io/meeting-minutes-mobile/desktop-updates/%D7%A1%D7%99%D7%9B%D7%95%D7%9E%D7%99-%D7%99%D7%A9%D7%99%D7%91%D7%95%D7%AA-%D7%A2%D7%93%D7%9B%D7%95%D7%9F-1.4.2.zip"
+  "version": "1.4.3",
+  "notes": "אפשר לבטל ניקוי ניסוח — אחרי לחיצה על ✨ מופיע כפתור '↩️ בטל' בהודעה, שמחזיר את הטקסט המקורי לפני הניקוי",
+  "zipUrl": "https://gabbychotam-sys.github.io/meeting-minutes-mobile/desktop-updates/%D7%A1%D7%99%D7%9B%D7%95%D7%9E%D7%99-%D7%99%D7%A9%D7%99%D7%91%D7%95%D7%AA-%D7%A2%D7%93%D7%9B%D7%95%D7%9F-1.4.3.zip"
 }
