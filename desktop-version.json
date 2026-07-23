@@ -1,5 +1,5 @@
 {
-  "version": "1.6.2",
-  "notes": "תיקון: הצעות הניסוח נפתחות עכשיו בחלון נפרד אמיתי (לא בעריכה), ותמיד מציגות 3 הצעות שונות זו מזו — גם על תמלול קולי בלי סימני פיסוק פנימיים",
-  "zipUrl": "https://gabbychotam-sys.github.io/meeting-minutes-mobile/desktop-updates/%D7%A1%D7%99%D7%9B%D7%95%D7%9E%D7%99-%D7%99%D7%A9%D7%99%D7%91%D7%95%D7%AA-%D7%A2%D7%93%D7%9B%D7%95%D7%9F-1.6.2.zip"
+  "version": "1.6.3",
+  "notes": "הצעות ניסוח מתחברות עכשיו לבקשה ל-AI ברקע (עם הודעת טעינה) — עדיין ממתין למפתח Gemini חינמי כדי לתת ניסוח אמיתי; עד אז מוצגת הודעה ברורה וחוזר לניקוי הבסיסי",
+  "zipUrl": "https://gabbychotam-sys.github.io/meeting-minutes-mobile/desktop-updates/%D7%A1%D7%99%D7%9B%D7%95%D7%9E%D7%99-%D7%99%D7%A9%D7%99%D7%91%D7%95%D7%AA-%D7%A2%D7%93%D7%9B%D7%95%D7%9F-1.6.3.zip"
 }
