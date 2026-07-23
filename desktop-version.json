@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
-  "notes": "ישיבה עתידית מוצגת עכשיו כריבוע סיכום קריא-בלבד, ונפתחת לעריכה מלאה רק בלחיצה על 'ערוך' — עם כפתור שמור מפורש (במקום שמירה אוטומטית בכל שינוי)",
-  "zipUrl": "https://gabbychotam-sys.github.io/meeting-minutes-mobile/desktop-updates/%D7%A1%D7%99%D7%9B%D7%95%D7%9E%D7%99-%D7%99%D7%A9%D7%99%D7%91%D7%95%D7%AA-%D7%A2%D7%93%D7%9B%D7%95%D7%9F-1.5.0.zip"
+  "version": "1.5.1",
+  "notes": "לחיצה על כותרת ישיבה עתידית פותחת עריכה (כמו כפתור 'ערוך'), ונוסף כפתור 🖨️ הדפס נושאים ליצוא PDF מהיר",
+  "zipUrl": "https://gabbychotam-sys.github.io/meeting-minutes-mobile/desktop-updates/%D7%A1%D7%99%D7%9B%D7%95%D7%9E%D7%99-%D7%99%D7%A9%D7%99%D7%91%D7%95%D7%AA-%D7%A2%D7%93%D7%9B%D7%95%D7%9F-1.5.1.zip"
 }
