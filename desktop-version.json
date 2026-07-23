@@ -1,5 +1,5 @@
 {
-  "version": "1.6.1",
-  "notes": "כפתור ✨ ניקוי ניסוח נותן עכשיו 3 הצעות ניסוח (ארוך/בינוני/קצר) לבחירה, במקום לנקות אוטומטית — התמלול המקורי מוצג למעלה",
-  "zipUrl": "https://gabbychotam-sys.github.io/meeting-minutes-mobile/desktop-updates/%D7%A1%D7%99%D7%9B%D7%95%D7%9E%D7%99-%D7%99%D7%A9%D7%99%D7%91%D7%95%D7%AA-%D7%A2%D7%93%D7%9B%D7%95%D7%9F-1.6.1.zip"
+  "version": "1.6.2",
+  "notes": "תיקון: הצעות הניסוח נפתחות עכשיו בחלון נפרד אמיתי (לא בעריכה), ותמיד מציגות 3 הצעות שונות זו מזו — גם על תמלול קולי בלי סימני פיסוק פנימיים",
+  "zipUrl": "https://gabbychotam-sys.github.io/meeting-minutes-mobile/desktop-updates/%D7%A1%D7%99%D7%9B%D7%95%D7%9E%D7%99-%D7%99%D7%A9%D7%99%D7%91%D7%95%D7%AA-%D7%A2%D7%93%D7%9B%D7%95%D7%9F-1.6.2.zip"
 }
