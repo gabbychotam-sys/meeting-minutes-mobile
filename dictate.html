@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>הכתבה קולית — סיכומי ישיבות</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Arial,sans-serif; background:#f4f5f7; color:#1a1a1a; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px 16px; }
+  @media (prefers-color-scheme: dark) { body { background:#17181c; color:#eee; } textarea { background:#24262b !important; color:#eee !important; border-color:#3a3c42 !important; } .card { background:#1f2024 !important; } }
+  .card { width:100%; max-width:520px; background:#fff; border-radius:14px; padding:22px; box-shadow:0 2px 10px rgba(0,0,0,.08); text-align:center; }
+  h1 { font-size:18px; margin:0 0 6px; }
+  .hint { font-size:13px; opacity:.7; margin-bottom:18px; }
+  #status { font-size:14px; margin-bottom:14px; min-height:20px; }
+  #status.rec { color:#eb5757; font-weight:600; }
+  textarea { width:100%; min-height:140px; border:1px solid #ddd; border-radius:10px; padding:12px; font-size:16px; font-family:inherit; resize:vertical; }
+  .row { display:flex; gap:10px; margin-top:14px; }
+  button { flex:1; padding:12px; border:none; border-radius:10px; font-size:15px; cursor:pointer; }
+  .btn-main { background:#2f6fed; color:#fff; }
+  .btn-main.rec { background:#eb5757; }
+  .btn-ghost { background:#eee; color:#333; }
+  @media (prefers-color-scheme: dark) { .btn-ghost { background:#333; color:#eee; } }
+  .done { display:none; margin-top:14px; padding:12px; background:#e6f6ea; color:#1e7e34; border-radius:10px; font-size:14px; }
+  @media (prefers-color-scheme: dark) { .done { background:#123420; color:#5fd77f; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎙️ הכתבה קולית</h1>
+  <div class="hint">מה שתגידו כאן יופיע מיד בתוכנת המחשב</div>
+  <div id="status">לוחצים "התחל הקלטה" ומתחילים לדבר</div>
+  <textarea id="text" placeholder="הטקסט המוקלט יופיע כאן..."></textarea>
+  <div class="row">
+    <button class="btn-main" id="toggleBtn">🎙️ התחל הקלטה</button>
+    <button class="btn-ghost" id="cleanBtn">✨ נקה ניסוח</button>
+  </div>
+  <div class="done" id="doneMsg">✅ נשמר בתוכנת המחשב. אפשר לסגור את הכרטיסייה הזו.</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script>
+var FB_CONFIG = {
+  apiKey:      "AIzaSyBvTzz4d__umScNiSIrculeQuogSIHSddY",
+  databaseURL: "https://galil-elyon-vehicles-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:   "galil-elyon-vehicles"
+};
+firebase.initializeApp(FB_CONFIG);
+var fbDb = firebase.database();
+
+var params = new URLSearchParams(location.search);
+var scratchId = params.get('scratch');
+var scratchRef = scratchId ? fbDb.ref('meetings/dictationScratch/' + scratchId) : null;
+
+var textEl = document.getElementById('text');
+var statusEl = document.getElementById('status');
+var toggleBtn = document.getElementById('toggleBtn');
+var doneMsg = document.getElementById('doneMsg');
+
+// same free, basic cleanup as the desktop app (no paid AI — Gabi's explicit choice)
+function cleanupText(text) {
+  if (!text) return text;
+  var t = text.trim();
+  var fillers = ['אה', 'אהה', 'האה', 'המ', 'אמ', 'אמם'];
+  var fillerRe = new RegExp('(^|\\s)(' + fillers.join('|') + ')(?=\\s|$)', 'g');
+  t = t.replace(fillerRe, ' ');
+  t = t.split(/\s+/).filter(function(w, i, arr) { return !w || i === 0 || w !== arr[i - 1]; }).join(' ');
+  t = t.replace(/\s+/g, ' ').trim();
+  t = t.replace(/\s+([.,!?])/g, '$1');
+  if (t && !/[.!?]$/.test(t)) t += '.';
+  return t;
+}
+
+function pushToScratch() {
+  if (scratchRef) scratchRef.set(textEl.value);
+}
+textEl.addEventListener('input', pushToScratch);
+
+document.getElementById('cleanBtn').addEventListener('click', function() {
+  textEl.value = cleanupText(textEl.value);
+  pushToScratch();
+});
+
+var Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+var rec = null;
+var recording = false;
+var baseValue = '';
+var stopping = false;
+
+if (!Ctor) {
+  statusEl.textContent = 'הדפדפן הזה לא תומך בזיהוי קולי — נסו לפתוח ב-Chrome';
+  toggleBtn.disabled = true;
+} else if (!scratchId) {
+  statusEl.textContent = 'קישור לא תקין — יש לפתוח דרך תוכנת המחשב';
+  toggleBtn.disabled = true;
+}
+
+toggleBtn.addEventListener('click', function() {
+  if (recording) {
+    stopping = true;
+    try { rec.stop(); } catch (e) {}
+    return;
+  }
+  startRecording();
+});
+
+function startRecording() {
+  baseValue = textEl.value ? textEl.value.trim() + ' ' : '';
+  stopping = false;
+  rec = new Ctor();
+  rec.lang = 'he-IL';
+  rec.continuous = true;
+  rec.interimResults = true;
+
+  rec.onresult = function(e) {
+    var finalText = '', interim = '';
+    for (var i = 0; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    textEl.value = (baseValue + finalText + interim).trim();
+    pushToScratch();
+  };
+  rec.onend = function() {
+    if (recording && !stopping) { try { rec.start(); return; } catch (e) {} }
+    recording = false;
+    toggleBtn.classList.remove('rec');
+    toggleBtn.textContent = '🎙️ התחל הקלטה';
+    statusEl.classList.remove('rec');
+    statusEl.textContent = 'ההקלטה נעצרה — אפשר להמשיך לדבר או לסגור';
+    doneMsg.style.display = 'block';
+  };
+  rec.onerror = function(e) {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      stopping = true;
+      statusEl.textContent = 'אין הרשאת מיקרופון בדפדפן — יש לאשר גישה ולנסות שוב';
+    }
+  };
+  try {
+    rec.start();
+    recording = true;
+    toggleBtn.classList.add('rec');
+    toggleBtn.textContent = '⏹️ עצור';
+    statusEl.classList.add('rec');
+    statusEl.textContent = '🔴 מקליט... אפשר לדבר';
+    doneMsg.style.display = 'none';
+  } catch (e) {}
+}
+</script>
+</body>
+</html>
