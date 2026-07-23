@@ -76,7 +76,7 @@
 <body>
 
 <header>
-  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.6.0</span></h1>
+  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.7.0</span></h1>
   <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
 </header>
 
@@ -274,7 +274,9 @@ function renderAgenda(snap) {
     var row = document.createElement('div');
     row.className = 'topic-row';
     var srcLabel = item.source === 'desktop' ? '💻 מהמחשב' : '🎙️ מהנייד';
-    row.innerHTML = '<span>' + escapeHtml(item.text) + '<div class="src">' + srcLabel + '</div></span>' +
+    row.innerHTML = '<span>' + escapeHtml(item.text) +
+                    (item.description ? '<div style="font-size:12px;color:#666;margin-top:3px;white-space:pre-wrap;">' + escapeHtml(item.description) + '</div>' : '') +
+                    '<div class="src">' + srcLabel + '</div></span>' +
                     '<button class="del-btn" data-key="' + k + '">✕</button>';
     row.querySelector('.del-btn').addEventListener('click', function() {
       fbDb.ref('meetings/agenda/' + k).remove();
