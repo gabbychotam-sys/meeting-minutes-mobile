@@ -86,7 +86,7 @@
 <body>
 
 <header>
-  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.8.0</span></h1>
+  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.8.1</span></h1>
   <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
 </header>
 
@@ -217,8 +217,6 @@
         <button class="btn-ghost" style="flex:1;" id="ideaMicBtn">🎙️ הקלטה קולית</button>
         <button class="btn-primary" style="flex:1;" id="ideaSendBtn">📤 שלח למחשב</button>
       </div>
-      <div class="lbl">רעיונות שממתינים במחשב:</div>
-      <div id="ideaList"><div class="empty">אין רעיונות ממתינים...</div></div>
     </div>
   </div>
 
@@ -260,7 +258,6 @@ function initFirebase() {
       setSyncChip(snap.val() === true ? 'ok' : 'pending', snap.val() === true ? 'מסונכרן' : 'מתחבר...');
     });
     fbDb.ref('meetings/futureMeetings').on('value', renderFutureList, function(err) { onFbError(err); });
-    fbDb.ref('meetings/topicIdeas').on('value', renderIdeaList, function(err) { onFbError(err); });
   } catch (e) {
     setSyncChip('off', 'שגיאת התחברות');
     console.error(e);
@@ -554,22 +551,6 @@ document.getElementById('ideaSendBtn').addEventListener('click', function() {
 document.getElementById('ideaInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') document.getElementById('ideaSendBtn').click();
 });
-
-function renderIdeaList(snap) {
-  var val = snap.val() || {};
-  var keys = Object.keys(val);
-  var host = document.getElementById('ideaList');
-  if (!keys.length) { host.innerHTML = '<div class="empty">אין רעיונות ממתינים...</div>'; return; }
-  keys.sort(function(a, b) { return (val[a].ts || 0) - (val[b].ts || 0); });
-  host.innerHTML = '';
-  keys.forEach(function(k) {
-    var row = document.createElement('div');
-    row.className = 'topic-row';
-    row.innerHTML = '<span>' + escapeHtml(val[k].text) + '</span><button class="del-btn" data-key="' + k + '">✕</button>';
-    row.querySelector('.del-btn').addEventListener('click', function() { fbDb.ref('meetings/topicIdeas/' + k).remove(); });
-    host.appendChild(row);
-  });
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // Meeting recording — setup → ONE continuous recording for the whole
