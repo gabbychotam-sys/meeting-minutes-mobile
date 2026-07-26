@@ -86,7 +86,7 @@
 <body>
 
 <header>
-  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.8.1</span></h1>
+  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.9.0</span></h1>
   <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
 </header>
 
@@ -181,6 +181,10 @@
       <!-- active recording (one continuous stream, split by topic afterward) -->
       <div id="stageActive" style="display:none;">
         <div class="timer" id="timerDisplay">00:00</div>
+        <div id="recWatchdogBanner" style="display:none; align-items:center; justify-content:space-between; gap:8px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:10px; padding:10px 12px; margin-top:8px;">
+          <span>⚠️ נראה שההקלטה הפסיקה לתמלל</span>
+          <button id="recWatchdogRetryBtn" class="btn-ghost" style="padding:6px 10px; white-space:nowrap;">🔄 נסה שוב</button>
+        </div>
         <div id="activeSpeakerChips" style="margin-top:6px;"></div>
         <div class="live-transcript" id="liveTranscript" style="margin-top:10px;"></div>
         <div class="row">
@@ -563,6 +567,14 @@ var activeSpeaker = null;      // speaker tag applied to newly finalized transcr
 var meetingRec = null;
 var meetingSegments = [];      // [{speaker,text}] whole-meeting chronological log
 var recStartTs = 0;
+// recognitionAlive tracks whether the underlying SpeechRecognition service is actually
+// running right now (as opposed to isRecording, which only tracks the user's intent to
+// record). A restart attempt can silently fail (e.g. mic access lost, tab backgrounded) —
+// without this the timer keeps counting up while nothing is actually being transcribed,
+// which is exactly what happened when a 40-minute meeting only captured its first ~30s.
+var recognitionAlive = false;
+var recRestartAttempts = 0;
+var recWatchdogHandle = null;
 var recTimerHandle = null;
 
 var RECENTS_KEY = 'mm_recentParticipants';
@@ -651,16 +663,60 @@ function renderLiveTranscript(interimText) {
   host.scrollTop = host.scrollHeight;
 }
 
+function showRecWarning() {
+  var b = document.getElementById('recWatchdogBanner');
+  if (b) b.style.display = 'flex';
+}
+function hideRecWarning() {
+  var b = document.getElementById('recWatchdogBanner');
+  if (b) b.style.display = 'none';
+}
+
+// Retries starting the recognizer with backoff instead of giving up silently after one
+// failed attempt — a single swallowed exception here was the root cause of a real
+// 40-minute recording that only captured its first ~30 seconds (the recognizer died,
+// one restart attempt threw, and nothing tried again).
+function attemptRecognitionRestart() {
+  if (!isRecording) return;
+  recRestartAttempts++;
+  var delay = Math.min(300 * recRestartAttempts, 3000);
+  setTimeout(function() {
+    if (!isRecording) return;
+    try { meetingRec.start(); }
+    catch (e) { attemptRecognitionRestart(); }
+  }, delay);
+}
+
+function startRecWatchdog() {
+  clearInterval(recWatchdogHandle);
+  recWatchdogHandle = setInterval(function() {
+    if (!isRecording) return;
+    if (!recognitionAlive) showRecWarning();
+  }, 4000);
+}
+function stopRecWatchdog() {
+  clearInterval(recWatchdogHandle);
+  hideRecWarning();
+}
+
 function startMeetingRecording() {
   if (!canUseSpeechRecognition) { showToast('יש לפתוח ב-Chrome'); return; }
   isRecording = true;
+  recognitionAlive = false;
+  recRestartAttempts = 0;
   activeSpeaker = null;
   meetingSegments = [];
   recStartTs = Date.now();
   renderActiveSpeakerChips();
   document.getElementById('liveTranscript').innerHTML = '';
+  hideRecWarning();
 
   meetingRec = newRecognizer();
+  meetingRec.onstart = function() {
+    recognitionAlive = true;
+    recRestartAttempts = 0;
+    hideRecWarning();
+  };
   meetingRec.onresult = function(e) {
     var interim = '';
     for (var i = e.resultIndex; i < e.results.length; i++) {
@@ -671,22 +727,36 @@ function startMeetingRecording() {
     renderLiveTranscript(interim);
   };
   meetingRec.onend = function() {
+    recognitionAlive = false;
     // A short delay before restarting matters on iOS Safari's flakier implementation, which can
     // silently fail to restart if start() is called synchronously inside onend.
-    if (isRecording) { setTimeout(function() { if (isRecording) { try { meetingRec.start(); } catch (e) {} } }, 300); }
+    if (isRecording) attemptRecognitionRestart();
   };
   meetingRec.onerror = function(e) {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
       isRecording = false;
+      recognitionAlive = false;
+      stopRecWatchdog();
       showToast('אין הרשאת מיקרופון');
+      return;
     }
+    // Other errors (network/no-speech/audio-capture/aborted) are followed by onend, which
+    // already handles restarting — just make them visible instead of failing silently.
+    console.warn('[meetingRec] error:', e.error);
   };
-  try { meetingRec.start(); } catch (e) {}
+  try { meetingRec.start(); } catch (e) { attemptRecognitionRestart(); }
+  startRecWatchdog();
   clearInterval(recTimerHandle);
   recTimerHandle = setInterval(function() {
     document.getElementById('timerDisplay').textContent = fmtTime(Date.now() - recStartTs);
   }, 1000);
 }
+
+document.getElementById('recWatchdogRetryBtn').addEventListener('click', function() {
+  recRestartAttempts = 0;
+  hideRecWarning();
+  if (meetingRec) { try { meetingRec.start(); } catch (e) { attemptRecognitionRestart(); } }
+});
 
 document.getElementById('activeTopicAdd').addEventListener('click', function() {
   var inp = document.getElementById('activeTopicInput');
@@ -768,6 +838,7 @@ function splitSegmentsByTopics(allSegments, topics) {
 document.getElementById('finishMeetingBtn').addEventListener('click', function() {
   isRecording = false;
   clearInterval(recTimerHandle);
+  stopRecWatchdog();
   if (meetingRec) { try { meetingRec.stop(); } catch (e) {} }
 
   if (!meetingSegments.length) { showToast('לא זוהה דיבור בהקלטה'); return; }
