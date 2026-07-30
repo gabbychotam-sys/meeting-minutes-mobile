@@ -86,7 +86,7 @@
 <body>
 
 <header>
-  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.9.0</span></h1>
+  <h1>🗓️ סיכומי ישיבות <span class="home-sub" style="font-size:11px;font-weight:400;opacity:.7;">v1.9.1</span></h1>
   <div class="sync-chip"><span class="dot" id="syncDot"></span><span id="syncText">מתחבר...</span></div>
 </header>
 
@@ -577,6 +577,32 @@ var recRestartAttempts = 0;
 var recWatchdogHandle = null;
 var recTimerHandle = null;
 
+// ═══ Wake Lock — the watchdog above recovers from the recognizer dying while
+// the tab is active, but if the phone's screen locks (its normal idle
+// timeout — often just 1-2 minutes — while someone just holds the phone
+// during a meeting without touching it), mobile OSes suspend the tab
+// outright: JS timers stop firing and the watchdog itself can't run, so
+// recording silently ends with no warning shown. Holding a screen wake
+// lock while recording prevents the lock from happening in the first
+// place. Browsers auto-release the lock when the tab is hidden, so it's
+// re-acquired on visibilitychange too. Not supported on iOS Safari, but
+// this feature is already Chrome/Android-only (see canUseSpeechRecognition
+// above), so that's not a new limitation. ═══
+var wakeLock = null;
+function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  navigator.wakeLock.request('screen').then(function(lock) {
+    wakeLock = lock;
+    wakeLock.addEventListener('release', function() { wakeLock = null; });
+  }).catch(function() { /* e.g. battery saver mode blocked it — nothing more we can do */ });
+}
+function releaseWakeLock() {
+  if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
+}
+document.addEventListener('visibilitychange', function() {
+  if (isRecording && !document.hidden && !wakeLock) requestWakeLock();
+});
+
 var RECENTS_KEY = 'mm_recentParticipants';
 function getRecentParticipants() {
   try { return JSON.parse(localStorage.getItem(RECENTS_KEY) || '[]'); } catch (e) { return []; }
@@ -702,6 +728,7 @@ function stopRecWatchdog() {
 function startMeetingRecording() {
   if (!canUseSpeechRecognition) { showToast('יש לפתוח ב-Chrome'); return; }
   isRecording = true;
+  requestWakeLock();
   recognitionAlive = false;
   recRestartAttempts = 0;
   activeSpeaker = null;
@@ -735,6 +762,7 @@ function startMeetingRecording() {
   meetingRec.onerror = function(e) {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
       isRecording = false;
+      releaseWakeLock();
       recognitionAlive = false;
       stopRecWatchdog();
       showToast('אין הרשאת מיקרופון');
@@ -837,6 +865,7 @@ function splitSegmentsByTopics(allSegments, topics) {
 // ─── finish meeting → split transcript by topic → summarize each → review ───
 document.getElementById('finishMeetingBtn').addEventListener('click', function() {
   isRecording = false;
+  releaseWakeLock();
   clearInterval(recTimerHandle);
   stopRecWatchdog();
   if (meetingRec) { try { meetingRec.stop(); } catch (e) {} }
