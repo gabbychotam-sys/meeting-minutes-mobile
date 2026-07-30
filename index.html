@@ -858,7 +858,7 @@ function splitSegmentsByTopics(allSegments, topics) {
       if (last && last.speaker === u.speaker) last.text = (last.text + ' ' + u.text).trim();
       else segs.push({ speaker: u.speaker, text: u.text });
     });
-    return { name: t.name, segments: segs };
+    return { name: t.name, description: t.description || '', segments: segs };
   });
 }
 
@@ -889,6 +889,7 @@ document.getElementById('finishMeetingBtn').addEventListener('click', function()
     block.className = 'topic-summary-block';
     block.innerHTML =
       '<h4>' + escapeHtml(t.name) + '</h4>' +
+      (t.description ? '<div style="font-size:12px;color:#666;margin-bottom:6px;white-space:pre-wrap;">🗂 מה תוכנן: ' + escapeHtml(t.description) + '</div>' : '') +
       '<textarea rows="4" data-topic-summary="' + i + '">' + escapeHtml(bullets) + '</textarea>' +
       '<details style="margin-top:6px;"><summary>הצג תמלול (לפי דובר)</summary>' +
       '<div class="transcript-full">' + (t.segments.length ? t.segments.map(function(s) { return '<div class="seg-line">' + (s.speaker ? '<b>' + escapeHtml(s.speaker) + ':</b> ' : '') + escapeHtml(s.text) + '</div>'; }).join('') : '<i>אין תמלול</i>') + '</div></details>';
@@ -906,7 +907,7 @@ document.getElementById('saveSummaryBtn').addEventListener('click', function() {
   var summaryInputs = document.querySelectorAll('[data-topic-summary]');
   var splitTopics = meeting._splitTopics || [];
   var topicsOut = splitTopics.map(function(t, i) {
-    return { name: t.name, segments: t.segments, summary: summaryInputs[i] ? summaryInputs[i].value.trim() : '' };
+    return { name: t.name, description: t.description || '', segments: t.segments, summary: summaryInputs[i] ? summaryInputs[i].value.trim() : '' };
   });
   fbDb.ref('meetings/summaries').push({
     title: title,
