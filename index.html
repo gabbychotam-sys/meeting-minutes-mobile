@@ -757,7 +757,7 @@ document.getElementById('futureStartRecordBtn').addEventListener('click', functi
   meeting = {
     title: item.title || defaultTitle(),
     participants: (item.participants || []).slice(),
-    topics: (item.topics || []).map(function(t) { return { name: t.text }; }),
+    topics: (item.topics || []).map(function(t) { return { name: t.text, description: t.description || '' }; }),
     futureMeetingKey: selectedFutureKey
   };
   if (!meeting.topics.length) meeting.topics.push({ name: 'דיון כללי' });
