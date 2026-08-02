@@ -347,12 +347,15 @@ function startRecordingBackup() { clearInterval(recordingBackupHandle); recordin
 function stopRecordingBackup() { clearInterval(recordingBackupHandle); }
 function clearRecordingBackup() { recordingBackupRef().remove(); }
 
+var lastInterimText = '';
+
 function startRecording() {
   isRecording = true;
   startRecordingBackup();
   recognitionAlive = false;
   recRestartAttempts = 0;
   meetingSegments = [];
+  lastInterimText = '';
   recStartTs = Date.now();
   document.getElementById('liveTranscript').innerHTML = '';
   hideWatchdog();
@@ -369,6 +372,7 @@ function startRecording() {
       if (e.results[i].isFinal) appendMeetingSegment(t);
       else interim += t;
     }
+    lastInterimText = interim;
     renderLiveTranscript(interim);
   };
   rec.onend = function() { recognitionAlive = false; if (isRecording) attemptRecognitionRestart(); };
@@ -422,6 +426,10 @@ document.getElementById('stopBtn').addEventListener('click', function() {
   stopWatchdog();
   stopRecordingBackup();
   if (rec) { try { rec.stop(); } catch (e) {} }
+  // The speech engine may not have finalized the last utterance yet when stop
+  // was clicked - whatever was still showing as interim text on screen is the
+  // best transcript available for it, so promote it instead of losing it.
+  if (lastInterimText.trim()) { appendMeetingSegment(lastInterimText.trim()); lastInterimText = ''; }
 
   if (!meetingSegments.length) { alert('לא זוהה דיבור בהקלטה'); showCard('topicsCard'); return; }
 

@@ -308,6 +308,8 @@ var isRecording = false;
 var activeSpeaker = null;      // speaker tag applied to newly finalized transcript chunks
 var meetingRec = null;
 var meetingSegments = [];      // [{speaker,text}] whole-meeting chronological log
+var lastInterimText = '';      // not-yet-final transcript from the speech engine - promoted to
+                                // meetingSegments on stop so it isn't lost if never finalized
 var recStartTs = 0;
 // recognitionAlive tracks whether the underlying SpeechRecognition service is actually
 // running right now (as opposed to isRecording, which only tracks the user's intent to
@@ -558,6 +560,7 @@ function startMeetingRecording() {
   recRestartAttempts = 0;
   activeSpeaker = null;
   meetingSegments = [];
+  lastInterimText = '';
   recStartTs = Date.now();
   renderActiveSpeakerChips();
   document.getElementById('liveTranscript').innerHTML = '';
@@ -576,6 +579,7 @@ function startMeetingRecording() {
       if (e.results[i].isFinal) appendMeetingSegment(activeSpeaker, t);
       else interim += t;
     }
+    lastInterimText = interim;
     renderLiveTranscript(interim);
   };
   meetingRec.onend = function() {
@@ -726,6 +730,10 @@ document.getElementById('finishMeetingBtn').addEventListener('click', function()
   stopRecWatchdog();
   stopRecordingBackup();
   if (meetingRec) { try { meetingRec.stop(); } catch (e) {} }
+  // The speech engine may not have finalized the last utterance yet when stop
+  // was clicked - whatever was still showing as interim text on screen is the
+  // best transcript available for it, so promote it instead of losing it.
+  if (lastInterimText.trim()) { appendMeetingSegment(activeSpeaker, lastInterimText.trim()); lastInterimText = ''; }
 
   if (!meetingSegments.length) { showToast('לא זוהה דיבור בהקלטה'); return; }
   showReviewFromMeeting();
