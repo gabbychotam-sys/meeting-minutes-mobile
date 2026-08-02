@@ -466,6 +466,10 @@ document.getElementById('sendBtn').addEventListener('click', function() {
     clearRecordingBackup();
     showCard(null);
     document.getElementById('doneMsg').style.display = 'block';
+    // this window only ever loads this one page (opened via chrome --app=,
+    // never navigated) - browsers allow a script to close a window whose
+    // session history has just the one document, so this should actually work
+    setTimeout(function() { window.close(); }, 1500);
   }).catch(function(err) {
     console.error(err);
     alert('שגיאה בשליחה — יש לוודא חיבור לאינטרנט ולנסות שוב');
