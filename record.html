@@ -243,6 +243,10 @@ function openTopicsForCategory(cat) {
   category = cat;
   topics = [];
   document.getElementById('topicsTitle').textContent = CAT_LABELS[cat] || 'הקלטה';
+  // pre-fill the topic field with the category name as a sensible default -
+  // still just plain editable text, not yet added, so typing over it or
+  // clearing it before starting works exactly like any other topic entry
+  document.getElementById('topicInput').value = CAT_LABELS[cat] || '';
   renderTopicsList();
   showCard('topicsCard');
 }

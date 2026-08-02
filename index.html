@@ -416,6 +416,10 @@ document.querySelectorAll('#recCategoryCard [data-cat]').forEach(function(btn) {
     recSelectedCategory = btn.getAttribute('data-cat');
     recSelectedTopics = [];
     document.getElementById('recTopicsTitle').textContent = recCategoryLabels[recSelectedCategory];
+    // pre-fill the topic field with the category name as a sensible default -
+    // still just plain editable text, not yet added, so typing over it or
+    // clearing it before starting works exactly like any other topic entry
+    document.getElementById('recTopicInput').value = recCategoryLabels[recSelectedCategory] || '';
     renderRecTopicsList();
     document.getElementById('recCategoryCard').style.display = 'none';
     document.getElementById('recTopicsCard').style.display = 'block';
