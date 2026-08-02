@@ -164,8 +164,7 @@
       <div class="lbl" style="margin-top:0;">נושאים (אופציונלי):</div>
       <div id="recTopicsList"><div class="empty">אין נושאים</div></div>
       <div class="row">
-        <input type="text" id="recTopicInput" placeholder="נושא...">
-        <button class="btn-ghost" id="recTopicAdd">הוסף</button>
+        <input type="text" id="recTopicInput" placeholder="נושא... (Enter להוספה)" style="width:100%;">
       </div>
       <button class="btn-big btn-record" id="recStartBtn" style="width:100%;margin-top:16px;">🎙️ התחל הקלטה</button>
     </div>
@@ -428,26 +427,29 @@ document.getElementById('recTopicsBackBtn').addEventListener('click', function()
   document.getElementById('recCategoryCard').style.display = 'block';
 });
 
-document.getElementById('recTopicAdd').addEventListener('click', function() {
+function addCurrentRecTopicInput() {
   var inp = document.getElementById('recTopicInput');
   var text = inp.value.trim();
   if (!text) return;
   recSelectedTopics.push(text);
   inp.value = '';
   renderRecTopicsList();
-});
+}
 document.getElementById('recTopicInput').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') document.getElementById('recTopicAdd').click();
+  if (e.key === 'Enter') addCurrentRecTopicInput();
 });
 
 document.getElementById('recStartBtn').addEventListener('click', function() {
   if (!canUseSpeechRecognition) { showToast('יש לפתוח ב-Chrome'); return; }
-  // a topic typed but not yet submitted via "הוסף" shouldn't be silently
+  // a topic typed but not yet submitted via Enter shouldn't be silently
   // discarded just because the user went straight to "התחל הקלטה"
-  document.getElementById('recTopicAdd').click();
+  addCurrentRecTopicInput();
   var topics = recSelectedTopics.length ? recSelectedTopics.map(function(t) { return { name: t }; }) : [{ name: 'דיון כללי' }];
+  // if a topic was named, it's a more useful default title than the generic
+  // category+date one - still fully editable on the review screen either way
+  var defaultTitle = recSelectedTopics.length ? recSelectedTopics[0] : defaultCategoryTitle(recSelectedCategory);
   meeting = {
-    title: defaultCategoryTitle(recSelectedCategory),
+    title: defaultTitle,
     participants: [],
     topics: topics,
     category: recSelectedCategory

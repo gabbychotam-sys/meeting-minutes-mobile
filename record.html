@@ -58,8 +58,7 @@
   <div class="lbl">נושאים (אופציונלי):</div>
   <div id="topicsList"><div class="empty">אין נושאים</div></div>
   <div class="row">
-    <input type="text" id="topicInput" placeholder="נושא...">
-    <button class="btn-ghost" id="topicAddBtn" style="flex:none;">הוסף</button>
+    <input type="text" id="topicInput" placeholder="נושא... (Enter להוספה)" style="width:100%;">
   </div>
   <button class="btn-main" id="startBtn" style="width:100%;margin-top:16px;">🎙️ התחל הקלטה</button>
 </div>
@@ -252,16 +251,16 @@ document.querySelectorAll('#catCard [data-cat]').forEach(function(btn) {
   btn.addEventListener('click', function() { openTopicsForCategory(btn.getAttribute('data-cat')); });
 });
 
-document.getElementById('topicAddBtn').addEventListener('click', function() {
+function addCurrentTopicInput() {
   var inp = document.getElementById('topicInput');
   var text = inp.value.trim();
   if (!text) return;
   topics.push(text);
   inp.value = '';
   renderTopicsList();
-});
+}
 document.getElementById('topicInput').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') document.getElementById('topicAddBtn').click();
+  if (e.key === 'Enter') addCurrentTopicInput();
 });
 
 // ─── recording (continuous, auto-restart with backoff — same fix as
@@ -336,7 +335,7 @@ function recordingBackupRef() { return fbDb.ref('meetings/recordingBackup/' + ge
 var recordingBackupHandle = null;
 function saveRecordingBackup() {
   recordingBackupRef().set({
-    title: defaultCategoryTitle(category),
+    title: topics.length ? topics[0] : defaultCategoryTitle(category),
     category: category,
     topics: topics.length ? topics.map(function(t) { return { name: t }; }) : [{ name: 'דיון כללי' }],
     segments: meetingSegments,
@@ -394,9 +393,9 @@ function startRecording() {
 
 document.getElementById('startBtn').addEventListener('click', function() {
   if (!Ctor) return;
-  // a topic typed but not yet submitted via "הוסף" shouldn't be silently
+  // a topic typed but not yet submitted via Enter shouldn't be silently
   // discarded just because the user went straight to "התחל הקלטה"
-  document.getElementById('topicAddBtn').click();
+  addCurrentTopicInput();
   startRecording();
 });
 
@@ -437,7 +436,10 @@ document.getElementById('stopBtn').addEventListener('click', function() {
   if (!meetingSegments.length) { alert('לא זוהה דיבור בהקלטה'); showCard('topicsCard'); return; }
 
   var effectiveTopics = topics.length ? topics.map(function(t) { return { name: t }; }) : [{ name: 'דיון כללי' }];
-  showReviewScreen(meetingSegments, effectiveTopics, defaultCategoryTitle(category));
+  // if a topic was named, it's a more useful default title than the generic
+  // category+date one - still fully editable before sending either way
+  var defaultTitle = topics.length ? topics[0] : defaultCategoryTitle(category);
+  showReviewScreen(meetingSegments, effectiveTopics, defaultTitle);
 });
 
 document.getElementById('sendBtn').addEventListener('click', function() {
