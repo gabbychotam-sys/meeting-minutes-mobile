@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>הקלטה — סיכומי ישיבות</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Arial,sans-serif; background:#f4f5f7; color:#1a1a1a; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px 16px; }
+  @media (prefers-color-scheme: dark) { body { background:#17181c; color:#eee; } textarea,input { background:#24262b !important; color:#eee !important; border-color:#3a3c42 !important; } .card { background:#1f2024 !important; } .topic-row { background:#24262b !important; } }
+  .card { width:100%; max-width:560px; background:#fff; border-radius:14px; padding:22px; box-shadow:0 2px 10px rgba(0,0,0,.08); }
+  h1 { font-size:19px; margin:0 0 6px; text-align:center; }
+  h4 { font-size:15px; margin:14px 0 6px; }
+  .hint { font-size:13px; opacity:.7; margin-bottom:18px; text-align:center; }
+  .lbl { font-size:12px; opacity:.65; margin:12px 0 6px; }
+  input[type=text] { width:100%; padding:11px 12px; border:1px solid #ddd; border-radius:10px; font-size:15px; font-family:inherit; }
+  textarea { width:100%; min-height:80px; border:1px solid #ddd; border-radius:10px; padding:12px; font-size:14px; font-family:inherit; resize:vertical; }
+  .row { display:flex; gap:10px; margin-top:10px; }
+  button { padding:12px; border:none; border-radius:10px; font-size:15px; cursor:pointer; font-family:inherit; }
+  .btn-cat { width:100%; margin-top:10px; background:#eef1f8; color:#0f3460; font-weight:600; text-align:center; }
+  .btn-main { flex:1; background:#2f6fed; color:#fff; }
+  .btn-main.rec { background:#eb5757; }
+  .btn-ghost { flex:1; background:#eee; color:#333; }
+  @media (prefers-color-scheme: dark) { .btn-cat { background:#2a2d3a; color:#9ab6ff; } .btn-ghost { background:#333; color:#eee; } }
+  .timer { font-size:38px; font-weight:700; text-align:center; margin:10px 0; direction:ltr; }
+  .live-transcript { max-height:220px; overflow-y:auto; background:#fafafa; border:1px solid #eee; border-radius:10px; padding:10px; font-size:14px; line-height:1.6; }
+  @media (prefers-color-scheme: dark) { .live-transcript { background:#24262b; border-color:#3a3c42; } }
+  .topic-row { display:flex; align-items:center; justify-content:space-between; background:#f4f5f7; border-radius:8px; padding:8px 12px; margin-bottom:6px; font-size:14px; }
+  .topic-row button { background:none; border:none; color:#c00; font-size:16px; padding:0 4px; cursor:pointer; }
+  .empty { opacity:.5; font-size:13px; padding:6px 0; }
+  .topic-summary-block { border-top:1px solid #eee; padding-top:10px; margin-top:10px; }
+  @media (prefers-color-scheme: dark) { .topic-summary-block { border-color:#3a3c42; } }
+  .transcript-full { font-size:13px; opacity:.8; margin-top:6px; white-space:pre-wrap; }
+  .done { display:none; margin-top:16px; padding:12px; background:#e6f6ea; color:#1e7e34; border-radius:10px; font-size:14px; text-align:center; }
+  @media (prefers-color-scheme: dark) { .done { background:#123420; color:#5fd77f; } }
+  .warn { background:#fff8e6; color:#8a6100; border-radius:10px; padding:12px; font-size:13px; text-align:center; }
+  @media (prefers-color-scheme: dark) { .warn { background:#332a10; color:#e0b84c; } }
+</style>
+</head>
+<body>
+
+<div class="card" id="unsupportedCard" style="display:none;">
+  <div class="warn">⚠️ הדפדפן הזה לא תומך בזיהוי קולי — יש לפתוח בכתובת הזו דרך Chrome.</div>
+</div>
+
+<div class="card" id="catCard" style="display:none;">
+  <h1>🎙️ הקלטה</h1>
+  <div class="hint">בחרו סוג הקלטה</div>
+  <button class="btn-cat" data-cat="phone">📞 שיחת טלפון</button>
+  <button class="btn-cat" data-cat="personal">🤝 פגישה אישית</button>
+  <button class="btn-cat" data-cat="random">🎙️ הקלטה אקראית</button>
+  <button class="btn-cat" data-cat="meeting">🗓️ ישיבה</button>
+</div>
+
+<div class="card" id="topicsCard" style="display:none;">
+  <h1 id="topicsTitle"></h1>
+  <div class="lbl">נושאים (אופציונלי):</div>
+  <div id="topicsList"><div class="empty">אין נושאים</div></div>
+  <div class="row">
+    <input type="text" id="topicInput" placeholder="נושא...">
+    <button class="btn-ghost" id="topicAddBtn" style="flex:none;">הוסף</button>
+  </div>
+  <button class="btn-main" id="startBtn" style="width:100%;margin-top:16px;">🎙️ התחל הקלטה</button>
+</div>
+
+<div class="card" id="activeCard" style="display:none;">
+  <div class="timer" id="timerDisplay">00:00</div>
+  <div id="watchdogBanner" class="warn" style="display:none;margin-bottom:10px;">⚠️ נראה שההקלטה הפסיקה לתמלל — <a href="#" id="watchdogRetry">נסה שוב</a></div>
+  <div class="live-transcript" id="liveTranscript"></div>
+  <button class="btn-main rec" id="stopBtn" style="width:100%;margin-top:16px;">⏹️ עצור הקלטה</button>
+</div>
+
+<div class="card" id="reviewCard" style="display:none;">
+  <h1>סיכום</h1>
+  <div class="lbl">כותרת:</div>
+  <input type="text" id="reviewTitle">
+  <div id="reviewTopicsList"></div>
+  <div class="row" style="margin-top:16px;">
+    <button class="btn-main" id="sendBtn">📤 שלח סיכום למחשב</button>
+    <button class="btn-ghost" id="discardBtn">מחק</button>
+  </div>
+</div>
+
+<div class="done" id="doneMsg">✅ נשמר בתוכנת המחשב. אפשר לסגור את הכרטיסייה הזו.</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script>
+// Same config-resolution pattern as index.html/dictate.html — desktop can
+// pass its own project via ?cfg= (base64 json), otherwise falls back to
+// the last-saved one, otherwise Gabi's own default.
+var DEFAULT_FB_CONFIG = {
+  apiKey:      "AIzaSyBvTzz4d__umScNiSIrculeQuogSIHSddY",
+  databaseURL: "https://galil-elyon-vehicles-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:   "galil-elyon-vehicles"
+};
+var CFG_STORAGE_KEY = 'mm_sync_config';
+function resolveFbConfig() {
+  var params = new URLSearchParams(location.search);
+  var cfgParam = params.get('cfg');
+  if (cfgParam) {
+    try {
+      var b64 = cfgParam.replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4) b64 += '=';
+      var decoded = JSON.parse(atob(b64));
+      localStorage.setItem(CFG_STORAGE_KEY, JSON.stringify(decoded));
+      return decoded;
+    } catch (e) { console.error('[resolveFbConfig] invalid ?cfg= param', e); }
+  }
+  var saved = localStorage.getItem(CFG_STORAGE_KEY);
+  if (saved) { try { return JSON.parse(saved); } catch (e) { console.error('[resolveFbConfig] corrupt saved config', e); } }
+  return DEFAULT_FB_CONFIG;
+}
+var FB_CONFIG = resolveFbConfig();
+firebase.initializeApp(FB_CONFIG);
+var fbDb = firebase.database();
+if (firebase.auth) firebase.auth().signInAnonymously().catch(function(err) { console.error('[anon auth]', err); });
+
+// ═══════════════════════════════════════════════════════════════════
+// Same proven pieces as index.html (mobile), ported verbatim where
+// possible: extractive summarizer, topic-splitting, escapeHtml. No
+// speaker-tagging here (this is a solo desktop-triggered recording,
+// not a multi-person meeting captured on a shared phone) — every
+// segment has speaker:null, same as any transcript with no tagging.
+// ═══════════════════════════════════════════════════════════════════
+var STOPWORDS = ['של','את','על','עם','אני','אתה','את','הוא','היא','אנחנו','אתם','הם','הן','זה','זאת','זו','אלה','אלו',
+  'כל','גם','לא','כן','אבל','אז','רק','יש','אין','היה','היתה','היו','יהיה','תהיה','צריך','צריכה','אפשר','כי','אם',
+  'מה','מי','איך','למה','מדוע','כאשר','כש','עד','אחרי','לפני','בין','וגם','או','כדי','שלי','שלך','שלו','שלה',
+  'שלנו','שלכם','שלהם','פה','שם','כבר','עוד','מאוד','הרבה','קצת','תודה','בבקשה','שלום','אז','זאת','היי','טוב',
+  'בסדר','נו','אה','אוקיי','okay','ok'];
+
+function summarize(text, maxSentences) {
+  var sentences = text.split(/(?<=[.!?])\s+|\n+/).map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 4; });
+  if (!sentences.length) return [text];
+  var stopSet = {};
+  STOPWORDS.forEach(function(w) { stopSet[w] = true; });
+  function words(s) { return s.replace(/[^֐-׿a-zA-Z0-9\s]/g, '').split(/\s+/).filter(function(w) { return w && w.length > 1 && !stopSet[w]; }); }
+  var freq = {};
+  sentences.forEach(function(s) { words(s).forEach(function(w) { freq[w] = (freq[w] || 0) + 1; }); });
+  var n = maxSentences || Math.min(12, Math.max(3, Math.round(sentences.length * 0.25)));
+  if (sentences.length <= n) return sentences;
+  var scored = sentences.map(function(s, i) {
+    var ws = words(s);
+    var score = ws.reduce(function(sum, w) { return sum + (freq[w] || 0); }, 0);
+    return { s: s, i: i, score: ws.length ? score / ws.length : 0 };
+  });
+  scored.sort(function(a, b) { return b.score - a.score; });
+  var top = scored.slice(0, n);
+  top.sort(function(a, b) { return a.i - b.i; });
+  return top.map(function(t) { return t.s; });
+}
+
+function splitSegmentsByTopics(allSegments, topics) {
+  var units = [];
+  allSegments.forEach(function(seg) {
+    var sentences = seg.text.split(/(?<=[.!?])\s+|\n+/).map(function(s) { return s.trim(); }).filter(Boolean);
+    if (!sentences.length) sentences = [seg.text];
+    sentences.forEach(function(s) { units.push({ speaker: seg.speaker, text: s }); });
+  });
+  var stopSet = {};
+  STOPWORDS.forEach(function(w) { stopSet[w] = true; });
+  function keywords(name) {
+    return name.replace(/[^֐-׿a-zA-Z0-9\s]/g, '').split(/\s+/).filter(function(w) { return w && w.length > 2 && !stopSet[w]; });
+  }
+  var searchFrom = 0;
+  var found = [];
+  topics.forEach(function(t, ti) {
+    var kws = keywords(t.name);
+    var foundAt = -1;
+    if (kws.length) {
+      for (var i = searchFrom; i < units.length; i++) {
+        var unitText = units[i].text;
+        if (kws.some(function(k) { return unitText.indexOf(k) !== -1; })) { foundAt = i; break; }
+      }
+    }
+    if (foundAt !== -1) { found.push({ ti: ti, b: foundAt }); searchFrom = foundAt + 1; }
+  });
+  var sliced = topics.map(function() { return []; });
+  found.sort(function(a, b) { return a.b - b.b; });
+  if (!found.length) {
+    if (sliced.length) sliced[0] = units.slice();
+  } else {
+    for (var fi = 0; fi < found.length; fi++) {
+      var startIdx = fi === 0 ? 0 : found[fi].b;
+      var endIdx = fi + 1 < found.length ? found[fi + 1].b : units.length;
+      sliced[found[fi].ti] = units.slice(startIdx, endIdx);
+    }
+  }
+  return topics.map(function(t, ti) {
+    var segs = [];
+    sliced[ti].forEach(function(u) {
+      var last = segs[segs.length - 1];
+      if (last && last.speaker === u.speaker) last.text = (last.text + ' ' + u.text).trim();
+      else segs.push({ speaker: u.speaker, text: u.text });
+    });
+    return { name: t.name, segments: segs };
+  });
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Category → topics → record → review → send
+// ═══════════════════════════════════════════════════════════════════
+var CAT_LABELS = { phone: 'שיחת טלפון', personal: 'פגישה אישית', random: 'הקלטה אקראית', meeting: 'ישיבה' };
+var category = null;
+var topics = [];
+var meetingSegments = [];
+var splitTopics = null;
+
+function defaultCategoryTitle(cat) {
+  var d = new Date();
+  var dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear() +
+    ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  return (CAT_LABELS[cat] || 'הקלטה') + ' – ' + dateStr;
+}
+
+function showCard(id) {
+  ['catCard', 'topicsCard', 'activeCard', 'reviewCard'].forEach(function(cid) {
+    document.getElementById(cid).style.display = cid === id ? 'block' : 'none';
+  });
+}
+
+function renderTopicsList() {
+  var host = document.getElementById('topicsList');
+  if (!topics.length) { host.innerHTML = '<div class="empty">אין נושאים</div>'; return; }
+  host.innerHTML = '';
+  topics.forEach(function(t, i) {
+    var row = document.createElement('div');
+    row.className = 'topic-row';
+    row.innerHTML = '<span>' + escapeHtml(t) + '</span><button data-i="' + i + '">✕</button>';
+    row.querySelector('button').addEventListener('click', function() { topics.splice(i, 1); renderTopicsList(); });
+    host.appendChild(row);
+  });
+}
+
+function openTopicsForCategory(cat) {
+  category = cat;
+  topics = [];
+  document.getElementById('topicsTitle').textContent = CAT_LABELS[cat] || 'הקלטה';
+  renderTopicsList();
+  showCard('topicsCard');
+}
+
+document.querySelectorAll('#catCard [data-cat]').forEach(function(btn) {
+  btn.addEventListener('click', function() { openTopicsForCategory(btn.getAttribute('data-cat')); });
+});
+
+document.getElementById('topicAddBtn').addEventListener('click', function() {
+  var inp = document.getElementById('topicInput');
+  var text = inp.value.trim();
+  if (!text) return;
+  topics.push(text);
+  inp.value = '';
+  renderTopicsList();
+});
+document.getElementById('topicInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('topicAddBtn').click();
+});
+
+// ─── recording (continuous, auto-restart with backoff — same fix as
+// mobile's v1.9.0 data-loss bugfix) ───
+var Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+var rec = null;
+var isRecording = false;
+var recognitionAlive = false;
+var recRestartAttempts = 0;
+var recStartTs = 0;
+var recTimerHandle = null;
+var recWatchdogHandle = null;
+
+if (!Ctor) document.getElementById('unsupportedCard').style.display = 'block';
+
+function fmtTime(ms) {
+  var sec = Math.floor(ms / 1000);
+  return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+}
+
+function appendMeetingSegment(text) {
+  text = text.trim();
+  if (!text) return;
+  var last = meetingSegments[meetingSegments.length - 1];
+  if (last) last.text = (last.text + ' ' + text).trim();
+  else meetingSegments.push({ speaker: null, text: text });
+}
+
+function renderLiveTranscript(interimText) {
+  var host = document.getElementById('liveTranscript');
+  host.innerHTML = meetingSegments.map(function(s) { return '<div>' + escapeHtml(s.text) + '</div>'; }).join('') +
+    (interimText ? '<div style="opacity:.5;">' + escapeHtml(interimText) + '</div>' : '');
+  host.scrollTop = host.scrollHeight;
+}
+
+function showWatchdog() { document.getElementById('watchdogBanner').style.display = 'block'; }
+function hideWatchdog() { document.getElementById('watchdogBanner').style.display = 'none'; }
+
+function attemptRecognitionRestart() {
+  if (!isRecording) return;
+  recRestartAttempts++;
+  var delay = Math.min(300 * recRestartAttempts, 3000);
+  setTimeout(function() {
+    if (!isRecording) return;
+    try { rec.start(); } catch (e) { attemptRecognitionRestart(); }
+  }, delay);
+}
+
+function startWatchdog() {
+  clearInterval(recWatchdogHandle);
+  recWatchdogHandle = setInterval(function() { if (isRecording && !recognitionAlive) showWatchdog(); }, 4000);
+}
+function stopWatchdog() { clearInterval(recWatchdogHandle); hideWatchdog(); }
+
+document.getElementById('watchdogRetry').addEventListener('click', function(e) {
+  e.preventDefault();
+  try { rec.start(); } catch (err) {}
+});
+
+function startRecording() {
+  isRecording = true;
+  recognitionAlive = false;
+  recRestartAttempts = 0;
+  meetingSegments = [];
+  recStartTs = Date.now();
+  document.getElementById('liveTranscript').innerHTML = '';
+  hideWatchdog();
+
+  rec = new Ctor();
+  rec.lang = 'he-IL';
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.onstart = function() { recognitionAlive = true; recRestartAttempts = 0; hideWatchdog(); };
+  rec.onresult = function(e) {
+    var interim = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      var t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) appendMeetingSegment(t);
+      else interim += t;
+    }
+    renderLiveTranscript(interim);
+  };
+  rec.onend = function() { recognitionAlive = false; if (isRecording) attemptRecognitionRestart(); };
+  rec.onerror = function(e) {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      isRecording = false; recognitionAlive = false; stopWatchdog();
+      alert('אין הרשאת מיקרופון בדפדפן');
+    }
+  };
+  try { rec.start(); } catch (e) { attemptRecognitionRestart(); }
+  startWatchdog();
+
+  recTimerHandle = setInterval(function() {
+    document.getElementById('timerDisplay').textContent = fmtTime(Date.now() - recStartTs);
+  }, 500);
+
+  showCard('activeCard');
+}
+
+document.getElementById('startBtn').addEventListener('click', function() {
+  if (!Ctor) return;
+  startRecording();
+});
+
+document.getElementById('stopBtn').addEventListener('click', function() {
+  isRecording = false;
+  clearInterval(recTimerHandle);
+  stopWatchdog();
+  if (rec) { try { rec.stop(); } catch (e) {} }
+
+  if (!meetingSegments.length) { alert('לא זוהה דיבור בהקלטה'); showCard('topicsCard'); return; }
+
+  var effectiveTopics = topics.length ? topics.map(function(t) { return { name: t }; }) : [{ name: 'דיון כללי' }];
+  splitTopics = splitSegmentsByTopics(meetingSegments, effectiveTopics);
+
+  document.getElementById('reviewTitle').value = defaultCategoryTitle(category);
+  var listHost = document.getElementById('reviewTopicsList');
+  listHost.innerHTML = '';
+  splitTopics.forEach(function(t, i) {
+    var fullText = t.segments.map(function(s) { return s.text; }).join(' ');
+    var bullets = fullText.trim() ? summarize(fullText).map(function(s) { return '• ' + s; }).join('\n') : '(לא זוהה תוכן ששייך לנושא זה)';
+    var block = document.createElement('div');
+    block.className = 'topic-summary-block';
+    block.innerHTML =
+      '<h4>' + escapeHtml(t.name) + '</h4>' +
+      '<textarea rows="4" data-topic-summary="' + i + '">' + escapeHtml(bullets) + '</textarea>' +
+      '<details style="margin-top:6px;"><summary>הצג תמלול</summary><div class="transcript-full">' +
+      (t.segments.length ? t.segments.map(function(s) { return escapeHtml(s.text); }).join('<br>') : '<i>אין תמלול</i>') + '</div></details>';
+    listHost.appendChild(block);
+  });
+
+  showCard('reviewCard');
+});
+
+document.getElementById('sendBtn').addEventListener('click', function() {
+  var title = document.getElementById('reviewTitle').value.trim() || defaultCategoryTitle(category);
+  var summaryInputs = document.querySelectorAll('[data-topic-summary]');
+  var topicsOut = (splitTopics || []).map(function(t, i) {
+    return { name: t.name, segments: t.segments, summary: summaryInputs[i] ? summaryInputs[i].value.trim() : '' };
+  });
+  fbDb.ref('meetings/summaries').push({
+    title: title,
+    date: new Date().toISOString().slice(0, 10),
+    participants: [],
+    topics: topicsOut,
+    category: category,
+    createdAt: Date.now()
+  }).then(function() {
+    showCard(null);
+    document.getElementById('doneMsg').style.display = 'block';
+  }).catch(function(err) {
+    console.error(err);
+    alert('שגיאה בשליחה — יש לוודא חיבור לאינטרנט ולנסות שוב');
+  });
+});
+
+document.getElementById('discardBtn').addEventListener('click', function() {
+  if (!confirm('למחוק את ההקלטה?')) return;
+  meetingSegments = [];
+  splitTopics = null;
+  showCard('catCard');
+});
+
+// ─── entry point: ?cat= from desktop skips straight to topics-setup ───
+var startParams = new URLSearchParams(location.search);
+var presetCat = startParams.get('cat');
+if (Ctor) {
+  if (presetCat && CAT_LABELS[presetCat]) openTopicsForCategory(presetCat);
+  else showCard('catCard');
+}
+</script>
+</body>
+</html>

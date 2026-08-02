@@ -40,14 +40,42 @@
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script>
-var FB_CONFIG = {
+// Same resolveFbConfig pattern as index.html — this page is opened via
+// shell.openExternal from the desktop app's own machine (a separate
+// localStorage origin from the customer's phone), so the desktop passes
+// its own config explicitly via ?cfg= each time it opens this page.
+var DEFAULT_FB_CONFIG = {
   apiKey:      "AIzaSyBvTzz4d__umScNiSIrculeQuogSIHSddY",
   databaseURL: "https://galil-elyon-vehicles-default-rtdb.europe-west1.firebasedatabase.app",
   projectId:   "galil-elyon-vehicles"
 };
+var CFG_STORAGE_KEY = 'mm_sync_config';
+
+function resolveFbConfig() {
+  var params = new URLSearchParams(location.search);
+  var cfgParam = params.get('cfg');
+  if (cfgParam) {
+    try {
+      var b64 = cfgParam.replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4) b64 += '=';
+      var decoded = JSON.parse(atob(b64));
+      localStorage.setItem(CFG_STORAGE_KEY, JSON.stringify(decoded));
+      return decoded;
+    } catch (e) { console.error('[resolveFbConfig] invalid ?cfg= param', e); }
+  }
+  var saved = localStorage.getItem(CFG_STORAGE_KEY);
+  if (saved) {
+    try { return JSON.parse(saved); } catch (e) { console.error('[resolveFbConfig] corrupt saved config', e); }
+  }
+  return DEFAULT_FB_CONFIG;
+}
+
+var FB_CONFIG = resolveFbConfig();
 firebase.initializeApp(FB_CONFIG);
 var fbDb = firebase.database();
+if (firebase.auth) firebase.auth().signInAnonymously().catch(function(err) { console.error('[anon auth]', err); });
 
 var params = new URLSearchParams(location.search);
 var scratchId = params.get('scratch');

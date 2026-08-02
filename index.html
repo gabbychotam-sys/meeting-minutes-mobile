@@ -128,7 +128,41 @@
 
   <div class="tabbar">
     <button class="tab-btn active" data-tab="future">🗓️ ישיבות עתידיות</button>
+    <button class="tab-btn" data-tab="recordings">🎙️ הקלטות</button>
     <button class="tab-btn" data-tab="idea">💡 רעיון לנושא</button>
+  </div>
+
+  <!-- ═══════════ shared recording screens — tab-independent, reused by both
+       "future meeting" recording and the new "הקלטות" quick-category flow.
+       Hidden by default; when shown, the tabbar + whichever tab-view was
+       active get hidden too (see enterRecordingUI/exitRecordingUI). ═══════════ -->
+  <div class="card" id="stageActive" style="display:none;">
+    <div class="timer" id="timerDisplay">00:00</div>
+    <div id="recWatchdogBanner" style="display:none; align-items:center; justify-content:space-between; gap:8px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:10px; padding:10px 12px; margin-top:8px;">
+      <span>⚠️ נראה שההקלטה הפסיקה לתמלל</span>
+      <button id="recWatchdogRetryBtn" class="btn-ghost" style="padding:6px 10px; white-space:nowrap;">🔄 נסה שוב</button>
+    </div>
+    <div id="activeSpeakerChips" style="margin-top:6px;"></div>
+    <div class="live-transcript" id="liveTranscript" style="margin-top:10px;"></div>
+    <div class="row">
+      <input type="text" id="activeTopicInput" placeholder="הוסיפו נושא נוסף (ייכלל בסיכום)...">
+      <button class="btn-ghost" id="activeTopicAdd">הוסף</button>
+    </div>
+    <button class="btn-big btn-stop" id="finishMeetingBtn" style="margin-top:16px;">⏹️ עצור הקלטה</button>
+  </div>
+
+  <div class="card" id="stageReview" style="display:none;">
+    <div class="lbl" style="margin-top:0;">כותרת:</div>
+    <input type="text" id="reviewTitle">
+    <div class="lbl">תאריך:</div>
+    <input type="text" id="reviewDate">
+    <div class="lbl">משתתפים:</div>
+    <div id="reviewParticipants"></div>
+    <div id="reviewTopicsList" style="margin-top:14px;"></div>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" style="flex:1;" id="saveSummaryBtn">📤 שלח סיכום למחשב</button>
+      <button class="btn-ghost" id="discardSummaryBtn">מחק</button>
+    </div>
   </div>
 
   <!-- ═══════════ TAB: future meetings (home) ═══════════ -->
@@ -177,37 +211,30 @@
           <button class="btn-ghost" id="futureCancelBtn">ביטול</button>
         </div>
       </div>
+    </div>
+  </div>
 
-      <!-- active recording (one continuous stream, split by topic afterward) -->
-      <div id="stageActive" style="display:none;">
-        <div class="timer" id="timerDisplay">00:00</div>
-        <div id="recWatchdogBanner" style="display:none; align-items:center; justify-content:space-between; gap:8px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; border-radius:10px; padding:10px 12px; margin-top:8px;">
-          <span>⚠️ נראה שההקלטה הפסיקה לתמלל</span>
-          <button id="recWatchdogRetryBtn" class="btn-ghost" style="padding:6px 10px; white-space:nowrap;">🔄 נסה שוב</button>
-        </div>
-        <div id="activeSpeakerChips" style="margin-top:6px;"></div>
-        <div class="live-transcript" id="liveTranscript" style="margin-top:10px;"></div>
-        <div class="row">
-          <input type="text" id="activeTopicInput" placeholder="הוסיפו נושא נוסף (ייכלל בסיכום)...">
-          <button class="btn-ghost" id="activeTopicAdd">הוסף</button>
-        </div>
-        <button class="btn-big btn-stop" id="finishMeetingBtn" style="margin-top:16px;">⏹️ עצור הקלטה</button>
-      </div>
+  <!-- ═══════════ TAB: recordings — pick a category, optional topics, record ═══════════ -->
+  <div class="tab-view" id="tabRecordings" style="display:none;">
+    <div class="card" id="recCategoryCard">
+      <h2 style="margin-top:0;">🎙️ הקלטות</h2>
+      <div class="lbl" style="margin-top:0;">בחרו סוג הקלטה:</div>
+      <button class="btn-big btn-record" data-cat="phone" style="width:100%;margin-top:10px;">📞 שיחת טלפון</button>
+      <button class="btn-big btn-record" data-cat="personal" style="width:100%;margin-top:10px;">🤝 פגישה אישית</button>
+      <button class="btn-big btn-record" data-cat="random" style="width:100%;margin-top:10px;">🎙️ הקלטה אקראית</button>
+      <button class="btn-big btn-record" data-cat="meeting" style="width:100%;margin-top:10px;">🗓️ ישיבה</button>
+    </div>
 
-      <!-- review before sending -->
-      <div id="stageReview" style="display:none;">
-        <div class="lbl">כותרת:</div>
-        <input type="text" id="reviewTitle">
-        <div class="lbl">תאריך:</div>
-        <input type="text" id="reviewDate">
-        <div class="lbl">משתתפים:</div>
-        <div id="reviewParticipants"></div>
-        <div id="reviewTopicsList" style="margin-top:14px;"></div>
-        <div class="row" style="margin-top:14px;">
-          <button class="btn-primary" style="flex:1;" id="saveSummaryBtn">📤 שלח סיכום למחשב</button>
-          <button class="btn-ghost" id="discardSummaryBtn">מחק</button>
-        </div>
+    <div class="card" id="recTopicsCard" style="display:none;">
+      <button class="btn-ghost" style="width:100%;margin-bottom:12px;" id="recTopicsBackBtn">→ חזרה</button>
+      <h2 id="recTopicsTitle" style="margin-top:0;"></h2>
+      <div class="lbl" style="margin-top:0;">נושאים (אופציונלי):</div>
+      <div id="recTopicsList"><div class="empty">אין נושאים</div></div>
+      <div class="row">
+        <input type="text" id="recTopicInput" placeholder="נושא...">
+        <button class="btn-ghost" id="recTopicAdd">הוסף</button>
       </div>
+      <button class="btn-big btn-record" id="recStartBtn" style="width:100%;margin-top:16px;">🎙️ התחל הקלטה</button>
     </div>
   </div>
 
@@ -232,16 +259,50 @@
 <!-- Firebase SDK (compat v8 — works without ES modules) -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
-// Firebase — shares the Galil Elyon project, dedicated "meetings" node
+// Firebase — Gabi's own personal config (Galil Elyon project) is the
+// default, unchanged. Generic-build customers instead scan a QR from
+// their desktop's "📱 חבר נייד" button, which opens this same page with
+// a one-time ?cfg=<base64 json> param — resolveFbConfig() below seeds
+// their own isolated config into localStorage so it persists after the
+// param is gone. Gabi's own phone never has this param/localStorage
+// entry, so its behavior is completely unchanged.
 // ═══════════════════════════════════════════════════════════════════
-var FB_CONFIG = {
+var DEFAULT_FB_CONFIG = {
   apiKey:      "AIzaSyBvTzz4d__umScNiSIrculeQuogSIHSddY",
   databaseURL: "https://galil-elyon-vehicles-default-rtdb.europe-west1.firebasedatabase.app",
   projectId:   "galil-elyon-vehicles"
 };
+var CFG_STORAGE_KEY = 'mm_sync_config';
+
+function resolveFbConfig() {
+  var params = new URLSearchParams(location.search);
+  var cfgParam = params.get('cfg');
+  if (cfgParam) {
+    try {
+      var b64 = cfgParam.replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4) b64 += '=';
+      var decoded = JSON.parse(atob(b64));
+      localStorage.setItem(CFG_STORAGE_KEY, JSON.stringify(decoded));
+      params.delete('cfg');
+      var cleanUrl = location.pathname + (params.toString() ? '?' + params.toString() : '');
+      history.replaceState(null, '', cleanUrl);
+      return decoded;
+    } catch (e) {
+      console.error('[resolveFbConfig] invalid ?cfg= param', e);
+    }
+  }
+  var saved = localStorage.getItem(CFG_STORAGE_KEY);
+  if (saved) {
+    try { return JSON.parse(saved); } catch (e) { console.error('[resolveFbConfig] corrupt saved config', e); }
+  }
+  return DEFAULT_FB_CONFIG;
+}
+
+var FB_CONFIG = resolveFbConfig();
 var fbDb = null;
 var futureCache = {};      // meetings/futureMeetings, live
 var selectedFutureKey = null;
@@ -258,6 +319,13 @@ function initFirebase() {
   try {
     var app = firebase.initializeApp(FB_CONFIG);
     fbDb = firebase.database();
+    // Generic-customer projects require auth != null in their database rules
+    // (see provisionFirebaseProject in the desktop app); Gabi's own personal
+    // project has open rules today, so this is harmless there too — anonymous
+    // sign-in has no visible UI, it just runs silently on load.
+    if (firebase.auth) {
+      firebase.auth().signInAnonymously().catch(function(err) { console.error('[anon auth]', err); });
+    }
     fbDb.ref('.info/connected').on('value', function(snap) {
       setSyncChip(snap.val() === true ? 'ok' : 'pending', snap.val() === true ? 'מסונכרן' : 'מתחבר...');
     });
@@ -270,7 +338,7 @@ function initFirebase() {
 
 function onFbError(err) {
   setSyncChip('off', 'אין הרשאה');
-  showToast('⚠️ בעיית הרשאות בפיירבייס — יש לפתוח את Firebase Console ולהוסיף כלל ציבורי לנתיב "meetings" (Realtime Database → Rules).');
+  showToast('⚠️ בעיית הרשאות בפיירבייס — יש לוודא ב-Firebase Console ש"Anonymous" מופעל תחת Authentication → Sign-in method.');
   console.error(err);
 }
 
@@ -291,9 +359,49 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
     btn.classList.add('active');
     var tab = btn.getAttribute('data-tab');
     document.getElementById('tabFuture').style.display = tab === 'future' ? 'block' : 'none';
+    document.getElementById('tabRecordings').style.display = tab === 'recordings' ? 'block' : 'none';
     document.getElementById('tabIdea').style.display = tab === 'idea' ? 'block' : 'none';
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// stageActive/stageReview are now tab-independent (shared by the
+// "future meeting" flow and the new "הקלטות" quick-category flow) -
+// entering recording hides the tabbar + whichever tab-view was active;
+// exiting restores them and returns to the correct screen depending on
+// which flow started the recording.
+// ═══════════════════════════════════════════════════════════════════
+var recordingReturnTo = 'future'; // 'future' | 'recordings'
+
+function enterRecordingUI(returnTo) {
+  recordingReturnTo = returnTo;
+  document.querySelector('.tabbar').style.display = 'none';
+  document.getElementById('tabFuture').style.display = 'none';
+  document.getElementById('tabRecordings').style.display = 'none';
+  document.getElementById('tabIdea').style.display = 'none';
+}
+
+// destination: 'future-list' (send completed - future meeting is gone, show
+// the list) | 'future-view' (discard - meeting still exists, go back to
+// viewing it) | 'recordings-category' (either outcome from the "הקלטות" tab
+// - nothing persists between recordings, always back to picking a category)
+function exitRecordingUI(destination) {
+  document.querySelector('.tabbar').style.display = 'flex';
+  document.getElementById('tabFuture').style.display = destination.indexOf('future') === 0 ? 'block' : 'none';
+  document.getElementById('tabRecordings').style.display = destination === 'recordings-category' ? 'block' : 'none';
+  if (destination === 'future-list') {
+    backToFutureList();
+  } else if (destination === 'future-view') {
+    document.getElementById('futureListCard').style.display = 'none';
+    document.getElementById('futureDetailCard').style.display = 'block';
+    document.getElementById('futureView').style.display = 'block';
+    document.getElementById('futureEdit').style.display = 'none';
+    renderFutureView(selectedFutureKey);
+  } else if (destination === 'recordings-category') {
+    document.getElementById('recTopicsCard').style.display = 'none';
+    document.getElementById('recCategoryCard').style.display = 'block';
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // Future meetings — home screen list + view/edit detail, same model as
@@ -627,7 +735,82 @@ document.getElementById('futureStartRecordBtn').addEventListener('click', functi
     futureMeetingKey: selectedFutureKey
   };
   if (!meeting.topics.length) meeting.topics.push({ name: 'דיון כללי' });
-  document.getElementById('futureView').style.display = 'none';
+  enterRecordingUI('future');
+  document.getElementById('stageActive').style.display = 'block';
+  startMeetingRecording();
+});
+
+// ─── "הקלטות" tab: pick a category (label only — same recording mechanism
+// for all 4), optional topics, then record. futureMeetingKey stays null on
+// purpose — saveSummaryBtn is already safe for that (only deletes a future
+// meeting if doneKey is set) ───
+var recCategoryLabels = { phone: 'שיחת טלפון', personal: 'פגישה אישית', random: 'הקלטה אקראית', meeting: 'ישיבה' };
+var recSelectedCategory = null;
+var recSelectedTopics = [];
+
+function defaultCategoryTitle(cat) {
+  var d = new Date();
+  var dateStr = String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear() +
+    ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  return (recCategoryLabels[cat] || 'הקלטה') + ' – ' + dateStr;
+}
+
+function renderRecTopicsList() {
+  var host = document.getElementById('recTopicsList');
+  if (!recSelectedTopics.length) { host.innerHTML = '<div class="empty">אין נושאים</div>'; return; }
+  host.innerHTML = '';
+  recSelectedTopics.forEach(function(t, i) {
+    var row = document.createElement('div');
+    row.className = 'topic-row';
+    row.innerHTML = '<span>' + escapeHtml(t) + '</span><button class="del-btn" data-i="' + i + '">✕</button>';
+    row.querySelector('.del-btn').addEventListener('click', function() {
+      recSelectedTopics.splice(i, 1);
+      renderRecTopicsList();
+    });
+    host.appendChild(row);
+  });
+}
+
+document.querySelectorAll('#recCategoryCard [data-cat]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    recSelectedCategory = btn.getAttribute('data-cat');
+    recSelectedTopics = [];
+    document.getElementById('recTopicsTitle').textContent = recCategoryLabels[recSelectedCategory];
+    renderRecTopicsList();
+    document.getElementById('recCategoryCard').style.display = 'none';
+    document.getElementById('recTopicsCard').style.display = 'block';
+  });
+});
+
+document.getElementById('recTopicsBackBtn').addEventListener('click', function() {
+  document.getElementById('recTopicsCard').style.display = 'none';
+  document.getElementById('recCategoryCard').style.display = 'block';
+});
+
+document.getElementById('recTopicAdd').addEventListener('click', function() {
+  var inp = document.getElementById('recTopicInput');
+  var text = inp.value.trim();
+  if (!text) return;
+  recSelectedTopics.push(text);
+  inp.value = '';
+  renderRecTopicsList();
+});
+document.getElementById('recTopicInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('recTopicAdd').click();
+});
+
+document.getElementById('recStartBtn').addEventListener('click', function() {
+  if (!canUseSpeechRecognition) { showToast('יש לפתוח ב-Chrome'); return; }
+  var topics = recSelectedTopics.length ? recSelectedTopics.map(function(t) { return { name: t }; }) : [{ name: 'דיון כללי' }];
+  meeting = {
+    title: defaultCategoryTitle(recSelectedCategory),
+    participants: [],
+    topics: topics,
+    futureMeetingKey: null,
+    category: recSelectedCategory
+  };
+  selectedFutureKey = null;
+  enterRecordingUI('recordings');
   document.getElementById('stageActive').style.display = 'block';
   startMeetingRecording();
 });
@@ -884,6 +1067,7 @@ document.getElementById('saveSummaryBtn').addEventListener('click', function() {
     date: date,
     participants: meeting.participants,
     topics: topicsOut,
+    category: meeting.category || null,
     createdAt: Date.now()
   }).then(function() {
     showToast('✅ הסיכום נשלח למחשב');
@@ -893,16 +1077,16 @@ document.getElementById('saveSummaryBtn').addEventListener('click', function() {
     meeting = null;
     document.getElementById('stageReview').style.display = 'none';
     if (doneKey) fbDb.ref('meetings/futureMeetings/' + doneKey).remove();
-    backToFutureList();
+    exitRecordingUI(recordingReturnTo === 'future' ? 'future-list' : 'recordings-category');
   }).catch(function(err) { onFbError(err); });
 });
 
 document.getElementById('discardSummaryBtn').addEventListener('click', function() {
-  if (!confirm('למחוק את ההקלטה? הישיבה העתידית תישאר, אפשר להקליט שוב.')) return;
+  var confirmMsg = selectedFutureKey ? 'למחוק את ההקלטה? הישיבה העתידית תישאר, אפשר להקליט שוב.' : 'למחוק את ההקלטה?';
+  if (!confirm(confirmMsg)) return;
   meeting = null;
   document.getElementById('stageReview').style.display = 'none';
-  document.getElementById('futureView').style.display = 'block';
-  if (selectedFutureKey) renderFutureView(selectedFutureKey);
+  exitRecordingUI(selectedFutureKey ? 'future-view' : 'recordings-category');
 });
 
 // ═══════════════════════════════════════════════════════════════════
