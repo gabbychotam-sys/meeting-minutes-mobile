@@ -757,7 +757,10 @@ document.getElementById('saveSummaryBtn').addEventListener('click', function() {
   var topicsOut = splitTopics.map(function(t, i) {
     return { name: t.name, description: t.description || '', segments: t.segments, summary: summaryInputs[i] ? summaryInputs[i].value.trim() : '' };
   });
-  fbDb.ref('meetings/summaries').push({
+  // lands in meetings/pendingRecordings first, not meetings/summaries directly -
+  // the desktop's "🎙️ הקלטות" tab is where it gets reviewed/edited, and only
+  // "💾 שמור" there moves it into meetings/summaries ("סיכומים שמורים")
+  fbDb.ref('meetings/pendingRecordings').push({
     title: title,
     date: date,
     participants: meeting.participants,
