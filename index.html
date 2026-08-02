@@ -442,6 +442,9 @@ document.getElementById('recTopicInput').addEventListener('keydown', function(e)
 
 document.getElementById('recStartBtn').addEventListener('click', function() {
   if (!canUseSpeechRecognition) { showToast('יש לפתוח ב-Chrome'); return; }
+  // a topic typed but not yet submitted via "הוסף" shouldn't be silently
+  // discarded just because the user went straight to "התחל הקלטה"
+  document.getElementById('recTopicAdd').click();
   var topics = recSelectedTopics.length ? recSelectedTopics.map(function(t) { return { name: t }; }) : [{ name: 'דיון כללי' }];
   meeting = {
     title: defaultCategoryTitle(recSelectedCategory),

@@ -394,6 +394,9 @@ function startRecording() {
 
 document.getElementById('startBtn').addEventListener('click', function() {
   if (!Ctor) return;
+  // a topic typed but not yet submitted via "הוסף" shouldn't be silently
+  // discarded just because the user went straight to "התחל הקלטה"
+  document.getElementById('topicAddBtn').click();
   startRecording();
 });
 
