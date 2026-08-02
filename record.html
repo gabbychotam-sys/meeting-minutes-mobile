@@ -485,13 +485,27 @@ function checkForRecordingBackup(onNoBackup) {
   }).catch(function(err) { console.error('[checkForRecordingBackup]', err); onNoBackup(); });
 }
 
+// custom recording types created on the desktop (meetings/recordingCategories,
+// {id: {label}}) extend CAT_LABELS beyond the 4 built-in ones, so a ?cat=
+// pointing at a custom category is recognized the same way as a built-in one.
+function loadCustomCategories() {
+  return fbDb.ref('meetings/recordingCategories').once('value').then(function(snap) {
+    var custom = snap.val() || {};
+    Object.keys(custom).forEach(function(id) {
+      if (custom[id] && custom[id].label) CAT_LABELS[id] = custom[id].label;
+    });
+  }).catch(function(err) { console.error('[loadCustomCategories]', err); });
+}
+
 // ─── entry point: ?cat= from desktop skips straight to topics-setup ───
 var startParams = new URLSearchParams(location.search);
 var presetCat = startParams.get('cat');
 if (Ctor) {
-  checkForRecordingBackup(function() {
-    if (presetCat && CAT_LABELS[presetCat]) openTopicsForCategory(presetCat);
-    else showCard('catCard');
+  loadCustomCategories().then(function() {
+    checkForRecordingBackup(function() {
+      if (presetCat && CAT_LABELS[presetCat]) openTopicsForCategory(presetCat);
+      else showCard('catCard');
+    });
   });
 }
 </script>
