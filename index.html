@@ -330,6 +330,7 @@ function initFirebase() {
       setSyncChip(snap.val() === true ? 'ok' : 'pending', snap.val() === true ? 'מסונכרן' : 'מתחבר...');
     });
     fbDb.ref('meetings/futureMeetings').on('value', renderFutureList, function(err) { onFbError(err); });
+    checkForRecordingBackup();
   } catch (e) {
     setSyncChip('off', 'שגיאת התחברות');
     console.error(e);
@@ -908,10 +909,41 @@ function stopRecWatchdog() {
   hideRecWarning();
 }
 
+// ═══ periodic backup — Gabi's explicit ask: if a recording gets cut off
+// (tab closed, connection lost) before it's manually stopped+sent, the
+// part already captured shouldn't just vanish. Overwrites the same node
+// every 60s (not accumulating), keyed per-device via a localStorage id so
+// recovery only ever offers what THIS device was mid-recording. ═══
+var DEVICE_ID_KEY = 'mm_deviceId';
+function getDeviceId() {
+  var id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) { id = 'd' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); localStorage.setItem(DEVICE_ID_KEY, id); }
+  return id;
+}
+function recordingBackupRef() { return fbDb.ref('meetings/recordingBackup/' + getDeviceId()); }
+var recordingBackupHandle = null;
+function saveRecordingBackup() {
+  if (!fbDb || !meeting) return;
+  recordingBackupRef().set({
+    title: meeting.title,
+    category: meeting.category || null,
+    topics: meeting.topics,
+    segments: meetingSegments,
+    updatedAt: Date.now()
+  });
+}
+function startRecordingBackup() {
+  clearInterval(recordingBackupHandle);
+  recordingBackupHandle = setInterval(saveRecordingBackup, 60000);
+}
+function stopRecordingBackup() { clearInterval(recordingBackupHandle); }
+function clearRecordingBackup() { if (fbDb) recordingBackupRef().remove(); }
+
 function startMeetingRecording() {
   if (!canUseSpeechRecognition) { showToast('יש לפתוח ב-Chrome'); return; }
   isRecording = true;
   requestWakeLock();
+  startRecordingBackup();
   recognitionAlive = false;
   recRestartAttempts = 0;
   activeSpeaker = null;
@@ -1046,15 +1078,9 @@ function splitSegmentsByTopics(allSegments, topics) {
 }
 
 // ─── finish meeting → split transcript by topic → summarize each → review ───
-document.getElementById('finishMeetingBtn').addEventListener('click', function() {
-  isRecording = false;
-  releaseWakeLock();
-  clearInterval(recTimerHandle);
-  stopRecWatchdog();
-  if (meetingRec) { try { meetingRec.stop(); } catch (e) {} }
-
-  if (!meetingSegments.length) { showToast('לא זוהה דיבור בהקלטה'); return; }
-
+// extracted so the crashed-recording recovery flow (below) can reuse the
+// exact same split/summarize/render logic instead of duplicating it
+function showReviewFromMeeting() {
   document.getElementById('stageActive').style.display = 'none';
   document.getElementById('reviewTitle').value = meeting.title;
   document.getElementById('reviewDate').value = todayStr();
@@ -1081,6 +1107,18 @@ document.getElementById('finishMeetingBtn').addEventListener('click', function()
 
   document.getElementById('stageReview').style.display = 'block';
   document.getElementById('stageReview').scrollIntoView({ behavior: 'smooth' });
+}
+
+document.getElementById('finishMeetingBtn').addEventListener('click', function() {
+  isRecording = false;
+  releaseWakeLock();
+  clearInterval(recTimerHandle);
+  stopRecWatchdog();
+  stopRecordingBackup();
+  if (meetingRec) { try { meetingRec.stop(); } catch (e) {} }
+
+  if (!meetingSegments.length) { showToast('לא זוהה דיבור בהקלטה'); return; }
+  showReviewFromMeeting();
 });
 
 document.getElementById('saveSummaryBtn').addEventListener('click', function() {
@@ -1105,6 +1143,7 @@ document.getElementById('saveSummaryBtn').addEventListener('click', function() {
     // this meeting has now actually happened - it's no longer "future"
     var doneKey = meeting.futureMeetingKey;
     meeting = null;
+    clearRecordingBackup();
     document.getElementById('stageReview').style.display = 'none';
     if (doneKey) fbDb.ref('meetings/futureMeetings/' + doneKey).remove();
     exitRecordingUI(recordingReturnTo === 'future' ? 'future-list' : 'recordings-category');
@@ -1115,9 +1154,38 @@ document.getElementById('discardSummaryBtn').addEventListener('click', function(
   var confirmMsg = selectedFutureKey ? 'למחוק את ההקלטה? הישיבה העתידית תישאר, אפשר להקליט שוב.' : 'למחוק את ההקלטה?';
   if (!confirm(confirmMsg)) return;
   meeting = null;
+  clearRecordingBackup();
   document.getElementById('stageReview').style.display = 'none';
   exitRecordingUI(selectedFutureKey ? 'future-view' : 'recordings-category');
 });
+
+// ═══ crashed-recording recovery — checked once on load. Offers to jump
+// straight to review (reusing showReviewFromMeeting) with whatever was
+// captured before the tab/connection was lost; declining deletes the
+// backup so it doesn't keep re-prompting forever. ═══
+function checkForRecordingBackup() {
+  if (!fbDb) return;
+  recordingBackupRef().once('value').then(function(snap) {
+    var b = snap.val();
+    if (!b || !b.segments || !b.segments.length) return;
+    var when = new Date(b.updatedAt).toLocaleString('he-IL');
+    var catLabel = recCategoryLabels[b.category] || 'הקלטה';
+    var msg = 'נמצאה הקלטה שלא הושלמה (' + catLabel + ', עודכן לאחרונה ' + when + ').\nלשלוח את מה שכן נקלט?';
+    if (confirm(msg)) {
+      meeting = { title: b.title, participants: [], topics: b.topics, futureMeetingKey: null, category: b.category };
+      // Firebase drops null-valued keys entirely (that's its delete
+      // mechanic) - a segment written with speaker:null comes back with no
+      // speaker property at all, i.e. undefined, which push() then rejects
+      // outright when sending. Normalize explicitly on the way back in.
+      meetingSegments = b.segments.map(function(s) { return { speaker: s.speaker || null, text: s.text }; });
+      selectedFutureKey = null;
+      enterRecordingUI('recordings');
+      showReviewFromMeeting();
+    } else {
+      recordingBackupRef().remove();
+    }
+  }).catch(function(err) { console.error('[checkForRecordingBackup]', err); });
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // Extractive summarizer — frequency-scored sentence selection (offline)

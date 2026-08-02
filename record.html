@@ -321,8 +321,35 @@ document.getElementById('watchdogRetry').addEventListener('click', function(e) {
   try { rec.start(); } catch (err) {}
 });
 
+// ═══ periodic backup — same reasoning as index.html (mobile): if this
+// browser tab/window gets closed or loses connection before the user
+// manually stops+sends, whatever was already captured shouldn't be lost.
+// Overwrites the same node every 60s, keyed per-device via a localStorage
+// id so recovery only offers what THIS device was mid-recording. ═══
+var DEVICE_ID_KEY = 'mm_deviceId';
+function getDeviceId() {
+  var id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) { id = 'd' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); localStorage.setItem(DEVICE_ID_KEY, id); }
+  return id;
+}
+function recordingBackupRef() { return fbDb.ref('meetings/recordingBackup/' + getDeviceId()); }
+var recordingBackupHandle = null;
+function saveRecordingBackup() {
+  recordingBackupRef().set({
+    title: defaultCategoryTitle(category),
+    category: category,
+    topics: topics.length ? topics.map(function(t) { return { name: t }; }) : [{ name: 'דיון כללי' }],
+    segments: meetingSegments,
+    updatedAt: Date.now()
+  });
+}
+function startRecordingBackup() { clearInterval(recordingBackupHandle); recordingBackupHandle = setInterval(saveRecordingBackup, 60000); }
+function stopRecordingBackup() { clearInterval(recordingBackupHandle); }
+function clearRecordingBackup() { recordingBackupRef().remove(); }
+
 function startRecording() {
   isRecording = true;
+  startRecordingBackup();
   recognitionAlive = false;
   recRestartAttempts = 0;
   meetingSegments = [];
@@ -366,18 +393,11 @@ document.getElementById('startBtn').addEventListener('click', function() {
   startRecording();
 });
 
-document.getElementById('stopBtn').addEventListener('click', function() {
-  isRecording = false;
-  clearInterval(recTimerHandle);
-  stopWatchdog();
-  if (rec) { try { rec.stop(); } catch (e) {} }
+// extracted so crashed-recording recovery (below) can reuse it too
+function showReviewScreen(segments, effectiveTopics, titleText) {
+  splitTopics = splitSegmentsByTopics(segments, effectiveTopics);
 
-  if (!meetingSegments.length) { alert('לא זוהה דיבור בהקלטה'); showCard('topicsCard'); return; }
-
-  var effectiveTopics = topics.length ? topics.map(function(t) { return { name: t }; }) : [{ name: 'דיון כללי' }];
-  splitTopics = splitSegmentsByTopics(meetingSegments, effectiveTopics);
-
-  document.getElementById('reviewTitle').value = defaultCategoryTitle(category);
+  document.getElementById('reviewTitle').value = titleText;
   var listHost = document.getElementById('reviewTopicsList');
   listHost.innerHTML = '';
   splitTopics.forEach(function(t, i) {
@@ -394,6 +414,19 @@ document.getElementById('stopBtn').addEventListener('click', function() {
   });
 
   showCard('reviewCard');
+}
+
+document.getElementById('stopBtn').addEventListener('click', function() {
+  isRecording = false;
+  clearInterval(recTimerHandle);
+  stopWatchdog();
+  stopRecordingBackup();
+  if (rec) { try { rec.stop(); } catch (e) {} }
+
+  if (!meetingSegments.length) { alert('לא זוהה דיבור בהקלטה'); showCard('topicsCard'); return; }
+
+  var effectiveTopics = topics.length ? topics.map(function(t) { return { name: t }; }) : [{ name: 'דיון כללי' }];
+  showReviewScreen(meetingSegments, effectiveTopics, defaultCategoryTitle(category));
 });
 
 document.getElementById('sendBtn').addEventListener('click', function() {
@@ -410,6 +443,7 @@ document.getElementById('sendBtn').addEventListener('click', function() {
     category: category,
     createdAt: Date.now()
   }).then(function() {
+    clearRecordingBackup();
     showCard(null);
     document.getElementById('doneMsg').style.display = 'block';
   }).catch(function(err) {
@@ -422,15 +456,43 @@ document.getElementById('discardBtn').addEventListener('click', function() {
   if (!confirm('למחוק את ההקלטה?')) return;
   meetingSegments = [];
   splitTopics = null;
+  clearRecordingBackup();
   showCard('catCard');
 });
+
+// ═══ crashed-recording recovery — checked once on load, before deciding
+// which normal entry screen to show. Declining deletes the backup so it
+// doesn't keep re-prompting on every future open. ═══
+function checkForRecordingBackup(onNoBackup) {
+  recordingBackupRef().once('value').then(function(snap) {
+    var b = snap.val();
+    if (!b || !b.segments || !b.segments.length) { onNoBackup(); return; }
+    var when = new Date(b.updatedAt).toLocaleString('he-IL');
+    var catLabel = CAT_LABELS[b.category] || 'הקלטה';
+    var msg = 'נמצאה הקלטה שלא הושלמה (' + catLabel + ', עודכן לאחרונה ' + when + ').\nלשלוח את מה שכן נקלט?';
+    if (confirm(msg)) {
+      category = b.category;
+      // Firebase drops null-valued keys entirely (its delete mechanic) - a
+      // segment written with speaker:null comes back with no speaker
+      // property at all (undefined), which push() rejects outright on
+      // send. Normalize explicitly on the way back in.
+      var recoveredSegments = b.segments.map(function(s) { return { speaker: s.speaker || null, text: s.text }; });
+      showReviewScreen(recoveredSegments, b.topics, b.title);
+    } else {
+      recordingBackupRef().remove();
+      onNoBackup();
+    }
+  }).catch(function(err) { console.error('[checkForRecordingBackup]', err); onNoBackup(); });
+}
 
 // ─── entry point: ?cat= from desktop skips straight to topics-setup ───
 var startParams = new URLSearchParams(location.search);
 var presetCat = startParams.get('cat');
 if (Ctor) {
-  if (presetCat && CAT_LABELS[presetCat]) openTopicsForCategory(presetCat);
-  else showCard('catCard');
+  checkForRecordingBackup(function() {
+    if (presetCat && CAT_LABELS[presetCat]) openTopicsForCategory(presetCat);
+    else showCard('catCard');
+  });
 }
 </script>
 </body>
