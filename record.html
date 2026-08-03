@@ -352,6 +352,100 @@ function clearRecordingBackup() { recordingBackupRef().remove(); }
 
 var lastInterimText = '';
 
+// ═══ raw-audio safety-net recording — same rationale as index.html: capture
+// raw mic audio in parallel to the live transcription above (unchanged),
+// chunked base64 over Realtime Database (no Storage configured, 10MB/value
+// ceiling), rotated by time AND size so it never depends on the browser's
+// unpredictable default bitrate. Best-effort only - never affects the live
+// transcription flow on failure. ═══
+function pickAudioMimeType() {
+  var candidates = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'];
+  for (var i = 0; i < candidates.length; i++) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
+  }
+  return '';
+}
+var AUDIO_CHUNK_TARGET_MS = window.__mmAudioChunkTargetMs || (20 * 60 * 1000);
+var AUDIO_CHUNK_MAX_RAW_BYTES = window.__mmAudioChunkMaxBytes || (6.5 * 1024 * 1024);
+var AUDIO_BITS_PER_SECOND = 24000;
+var audioUploadId = null, audioStream = null, audioRecorder = null;
+var audioChunkBlobs = [], audioChunkIndex = 0, audioChunkBytes = 0;
+var audioChunkRotateTimer = null, audioMimeType = '', audioCaptureActive = false, audioRotating = false;
+
+// a MediaRecorder occasionally fails to (re)start on real devices (transient encoder/resource
+// hiccup) - since this is a best-effort backup, a single failed rotation must self-heal instead
+// of silently going dark for the rest of the recording, so a failed start retries shortly after.
+function startNewAudioChunk() {
+  if (!audioCaptureActive) return;
+  audioMimeType = pickAudioMimeType();
+  try {
+    audioRecorder = audioMimeType
+      ? new MediaRecorder(audioStream, { mimeType: audioMimeType, audioBitsPerSecond: AUDIO_BITS_PER_SECOND })
+      : new MediaRecorder(audioStream, { audioBitsPerSecond: AUDIO_BITS_PER_SECOND });
+  } catch (e) { console.warn('[audioBackup] MediaRecorder init failed, retrying shortly:', e); scheduleAudioChunkRetry(); return; }
+  audioChunkBlobs = [];
+  audioChunkBytes = 0;
+  audioRecorder.ondataavailable = function(e) {
+    if (!e.data || !e.data.size) return;
+    audioChunkBlobs.push(e.data);
+    audioChunkBytes += e.data.size;
+    if (audioChunkBytes >= AUDIO_CHUNK_MAX_RAW_BYTES) rotateAudioChunk();
+  };
+  audioRecorder.onstop = finalizeAudioChunk;
+  try { audioRecorder.start(2000); } catch (e) { console.warn('[audioBackup] start failed, retrying shortly:', e); scheduleAudioChunkRetry(); }
+}
+function scheduleAudioChunkRetry() {
+  if (!audioCaptureActive) return;
+  setTimeout(function() { if (audioCaptureActive) startNewAudioChunk(); }, 500);
+}
+// guarded against re-entry: the byte-size check (inside ondataavailable) and the time-based
+// timer can otherwise both fire close together and race each other into overlapping stop/start
+// cycles - only one rotation may be in flight at a time.
+function rotateAudioChunk() {
+  if (audioRotating) return;
+  audioRotating = true;
+  clearTimeout(audioChunkRotateTimer);
+  if (audioCaptureActive) audioChunkRotateTimer = setTimeout(rotateAudioChunk, AUDIO_CHUNK_TARGET_MS);
+  if (audioRecorder && audioRecorder.state === 'recording') audioRecorder.stop();
+  else audioRotating = false; // nothing to stop - no onstop will come along to clear the flag
+}
+function finalizeAudioChunk() {
+  audioRotating = false;
+  if (!audioChunkBlobs.length) { if (audioCaptureActive) startNewAudioChunk(); return; }
+  var blob = new Blob(audioChunkBlobs, { type: audioMimeType || 'audio/webm' });
+  var idx = audioChunkIndex++;
+  var reader = new FileReader();
+  reader.onloadend = function() {
+    var base64 = String(reader.result || '').split(',')[1] || '';
+    if (fbDb && audioUploadId && base64) {
+      fbDb.ref('meetings/audioChunks/' + audioUploadId + '/' + idx).set({
+        data: base64, mimeType: audioMimeType || 'audio/webm', seq: idx, createdAt: Date.now()
+      }).catch(function(e) { console.warn('[audioBackup] chunk push failed:', e); });
+    }
+  };
+  try { reader.readAsDataURL(blob); } catch (e) { console.warn('[audioBackup] encode failed:', e); }
+  if (audioCaptureActive) startNewAudioChunk();
+}
+function startBackupAudioCapture() {
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder)) return;
+  audioUploadId = 'a' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  audioChunkIndex = 0;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+    audioStream = stream;
+    audioCaptureActive = true;
+    startNewAudioChunk();
+    clearTimeout(audioChunkRotateTimer);
+    audioChunkRotateTimer = setTimeout(rotateAudioChunk, AUDIO_CHUNK_TARGET_MS);
+  }).catch(function(e) { console.warn('[audioBackup] getUserMedia failed:', e); });
+}
+function stopBackupAudioCapture() {
+  audioCaptureActive = false;
+  clearTimeout(audioChunkRotateTimer);
+  if (audioRecorder && audioRecorder.state === 'recording') { try { audioRecorder.stop(); } catch (e) {} }
+  if (audioStream) { try { audioStream.getTracks().forEach(function(t) { t.stop(); }); } catch (e) {} }
+  audioStream = null;
+}
+
 function startRecording() {
   isRecording = true;
   startRecordingBackup();
@@ -386,6 +480,7 @@ function startRecording() {
     }
   };
   try { rec.start(); } catch (e) { attemptRecognitionRestart(); }
+  startBackupAudioCapture();
   startWatchdog();
 
   recTimerHandle = setInterval(function() {
@@ -431,6 +526,7 @@ document.getElementById('stopBtn').addEventListener('click', function() {
   clearInterval(recTimerHandle);
   stopWatchdog();
   stopRecordingBackup();
+  stopBackupAudioCapture();
   if (rec) { try { rec.stop(); } catch (e) {} }
   // The speech engine may not have finalized the last utterance yet when stop
   // was clicked - whatever was still showing as interim text on screen is the
@@ -461,6 +557,7 @@ document.getElementById('sendBtn').addEventListener('click', function() {
     participants: [],
     topics: topicsOut,
     category: category,
+    audioUploadId: audioUploadId || null,
     createdAt: Date.now()
   }).then(function() {
     clearRecordingBackup();
