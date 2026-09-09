@@ -13,8 +13,8 @@ class FakeClassList {
 class FakeElement {
   constructor(id = '', className = '') {
     this.id = id;
+    this.classList = new FakeClassList();
     this.className = className;
-    this.classList = new FakeClassList(className);
     this.dataset = {};
     this.disabled = false;
     this.textContent = '';
@@ -23,6 +23,11 @@ class FakeElement {
     this.style = {};
     this.value = '';
   }
+  set className(value) {
+    this._className = value;
+    this.classList = new FakeClassList(value);
+  }
+  get className() { return this._className; }
   addEventListener(type, listener) { this.listeners[type] = listener; }
   click() { if (!this.disabled && this.listeners.click) this.listeners.click({ currentTarget: this }); }
   appendChild(child) { this.children.push(child); return child; }
@@ -53,8 +58,19 @@ const document = {
 };
 
 let saveCalls = 0;
+const oversizedBlob = new Blob([new Uint8Array(25 * 1024 * 1024 + 1)], { type: 'audio/mp4' });
+const listedRecords = [{
+  id: 'oversized-test',
+  blob: oversizedBlob,
+  fileName: 'oversized-test.m4a',
+  mimeType: 'audio/mp4',
+  size: oversizedBlob.size,
+  createdAt: Date.now(),
+  durationMs: 1000,
+  source: 'file'
+}];
 const fakeStore = {
-  listRecordings: () => Promise.resolve([]),
+  listRecordings: () => Promise.resolve(listedRecords),
   saveRecording: (record) => {
     saveCalls += 1;
     return Promise.resolve({ ...record, size: record.blob.size });
@@ -71,12 +87,24 @@ function makeStream() {
 }
 
 let getUserMedia = () => Promise.resolve(makeStream());
+let getUserMediaCalls = 0;
 let wakeReleaseCalls = 0;
+let shareCalls = 0;
 const intervalIds = new Set();
 let nextIntervalId = 1;
 
 const navigator = {
-  mediaDevices: { getUserMedia: (...args) => getUserMedia(...args) },
+  mediaDevices: {
+    getUserMedia: (...args) => {
+      getUserMediaCalls += 1;
+      return getUserMedia(...args);
+    }
+  },
+  canShare: () => true,
+  share: () => {
+    shareCalls += 1;
+    return Promise.resolve();
+  },
   storage: { persist: () => Promise.resolve(true) },
   wakeLock: {
     request: () => Promise.resolve({
@@ -94,7 +122,7 @@ const windowObject = {
     createRecordingId: (() => { let id = 0; return () => `test-${++id}`; })(),
     MAX_WINDOWS_BYTES: 25 * 1024 * 1024
   },
-  confirm: () => true,
+  confirm: () => { throw new Error('window.confirm must not be used before navigator.share'); },
   addEventListener() {},
   navigator,
   MediaRecorder: null
@@ -132,6 +160,15 @@ function setMediaRecorder(RecorderClass) {
 
 function tick() { return new Promise((resolve) => setTimeout(resolve, 0)); }
 
+function findByText(root, text) {
+  if (root.textContent === text) return root;
+  for (const child of root.children || []) {
+    const found = findByText(child, text);
+    if (found) return found;
+  }
+  return null;
+}
+
 const source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 vm.runInContext(source, context, { filename: 'app.js' });
 
@@ -139,15 +176,33 @@ vm.runInContext(source, context, { filename: 'app.js' });
   await tick();
   assert.equal(document.documentElement.dataset.appReady, 'true');
 
+  const openLargeShare = findByText(elements.get('recordingList'), 'המשך לשיתוף קובץ גדול');
+  const confirmLargeShare = findByText(elements.get('recordingList'), 'שתף עכשיו בכל זאת');
+  assert.ok(openLargeShare, 'large recording did not render a first-step share button');
+  assert.ok(confirmLargeShare, 'large recording did not render a second-step share button');
+  openLargeShare.click();
+  assert.equal(shareCalls, 0, 'first step opened sharing instead of showing inline confirmation');
+  confirmLargeShare.click();
+  assert.equal(shareCalls, 1, 'second explicit click did not call navigator.share directly');
+
   function ConstructorFailure() { throw new Error('constructor failure'); }
   ConstructorFailure.isTypeSupported = () => false;
   setMediaRecorder(ConstructorFailure);
   const constructorTrackIndex = tracks.length;
-  elements.get('startBtn').click();
+  let resolveStartingStream;
+  getUserMedia = () => new Promise((resolve) => { resolveStartingStream = resolve; });
+  const callsBeforeDoubleClick = getUserMediaCalls;
+  const startListener = elements.get('startBtn').listeners.click;
+  startListener({ currentTarget: elements.get('startBtn') });
+  startListener({ currentTarget: elements.get('startBtn') });
+  assert.equal(getUserMediaCalls - callsBeforeDoubleClick, 1, 'double click opened more than one microphone request');
+  assert.equal(elements.get('startBtn').disabled, true, 'start button was not locked while microphone permission was pending');
+  resolveStartingStream(makeStream());
   await tick();
   assert.equal(tracks[constructorTrackIndex].stopCalls, 1, 'constructor failure left microphone track active');
   assert.equal(intervalIds.size, 0, 'constructor failure left a timer active');
   assert.equal(saveCalls, 0, 'constructor failure saved a recording');
+  getUserMedia = () => Promise.resolve(makeStream());
 
   class StartFailureRecorder {
     constructor() { this.state = 'inactive'; this.mimeType = 'audio/webm'; this.listeners = {}; }
@@ -193,7 +248,7 @@ vm.runInContext(source, context, { filename: 'app.js' });
   assert.match(elements.get('message').textContent, /לא נשמר קובץ חלקי/);
   assert.ok(wakeReleaseCalls >= 1, 'recorder error did not release wake lock');
 
-  console.log('PASS: MediaRecorder constructor/start cleanup and error-then-stop suppression');
+  console.log('PASS: start locking, large-file share activation, recorder cleanup, and partial-file suppression');
 })().catch((error) => {
   console.error(error.stack || error);
   process.exitCode = 1;

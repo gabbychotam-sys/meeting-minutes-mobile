@@ -1,5 +1,5 @@
 var CACHE_PREFIX = 'meeting-minutes-mobile-';
-var CACHE_NAME = CACHE_PREFIX + 'v2.1.0';
+var CACHE_NAME = CACHE_PREFIX + 'v2.1.1';
 var APP_SHELL = [
   './',
   './index.html',

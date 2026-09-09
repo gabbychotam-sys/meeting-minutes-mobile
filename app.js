@@ -7,6 +7,8 @@
   var recordingsById = new Map();
   var storageReady = false;
   var activeSession = null;
+  var isStarting = false;
+  var startRequestId = 0;
   var startedAt = 0;
   var timerHandle = null;
   var wakeLock = null;
@@ -80,12 +82,23 @@
 
   function setIdleControls() {
     startBtn.classList.remove('hidden');
-    startBtn.disabled = !storageReady;
+    startBtn.disabled = !storageReady || isStarting || !!activeSession || !!pendingSave;
     stopBtn.classList.add('hidden');
     retryBtn.classList.add('hidden');
-    audioInput.disabled = !storageReady;
+    audioInput.disabled = !storageReady || isStarting || !!activeSession || !!pendingSave;
     statusDot.className = 'dot ready';
     statusText.textContent = 'מוכן להקלטה';
+  }
+
+  function setStartingControls() {
+    startBtn.classList.remove('hidden');
+    startBtn.disabled = true;
+    stopBtn.classList.add('hidden');
+    retryBtn.classList.add('hidden');
+    audioInput.disabled = true;
+    statusDot.className = 'dot saving';
+    statusText.textContent = 'פותח את המיקרופון';
+    setMessage('ממתין לאישור המיקרופון…', 'info');
   }
 
   function setSavingControls() {
@@ -147,24 +160,7 @@
     return item;
   }
 
-  function handleShareClick(event) {
-    var record = recordingsById.get(event.currentTarget.dataset.recordingId);
-    if (!record) {
-      setMessage('ההקלטה אינה זמינה כרגע. הרשימה תיטען מחדש.', 'error');
-      refreshRecordings();
-      return;
-    }
-    if (record.size > MAX_WINDOWS_BYTES) {
-      var continueSharing = window.confirm(
-        'הקובץ גדול מ־25 MiB ולכן אפליקציית Windows לא תוכל לעבד אותו. ' +
-        'ההקלטה תישאר שמורה כאן גם אם תשתף אותה. לשתף בכל זאת?'
-      );
-      if (!continueSharing) {
-        setMessage('השיתוף לא נפתח. ההקלטה הגדולה נשארת שמורה באפליקציה.', 'info');
-        return;
-      }
-    }
-
+  function shareRecording(record) {
     var file;
     try {
       file = new File([record.blob], record.fileName, {
@@ -208,6 +204,58 @@
         setMessage('השיתוף לא הושלם. ההקלטה נשארת שמורה באפליקציה ואפשר לנסות שוב.', 'error');
       }
     });
+  }
+
+  function handleShareClick(event) {
+    var record = recordingsById.get(event.currentTarget.dataset.recordingId);
+    if (!record) {
+      setMessage('ההקלטה אינה זמינה כרגע. הרשימה תיטען מחדש.', 'error');
+      refreshRecordings();
+      return;
+    }
+    shareRecording(record);
+  }
+
+  function addOversizeShareControls(container, record) {
+    var openButton = document.createElement('button');
+    openButton.type = 'button';
+    openButton.className = 'large-share-button';
+    openButton.textContent = 'המשך לשיתוף קובץ גדול';
+
+    var confirmation = document.createElement('div');
+    confirmation.className = 'large-share-confirm hidden';
+    var warning = document.createElement('p');
+    warning.textContent = 'אפליקציית Windows לא תוכל לעבד קובץ מעל 25 MiB. ההקלטה תישאר שמורה כאן גם לאחר השיתוף.';
+    var confirmButton = document.createElement('button');
+    confirmButton.type = 'button';
+    confirmButton.className = 'share-button';
+    confirmButton.textContent = 'שתף עכשיו בכל זאת';
+    var cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.className = 'cancel-delete';
+    cancelButton.textContent = 'ביטול';
+    confirmation.appendChild(warning);
+    confirmation.appendChild(confirmButton);
+    confirmation.appendChild(cancelButton);
+
+    openButton.addEventListener('click', function () {
+      openButton.classList.add('hidden');
+      confirmation.classList.remove('hidden');
+      confirmButton.focus();
+    });
+    cancelButton.addEventListener('click', function () {
+      confirmation.classList.add('hidden');
+      openButton.classList.remove('hidden');
+      openButton.focus();
+    });
+    confirmButton.addEventListener('click', function () {
+      confirmation.classList.add('hidden');
+      openButton.classList.remove('hidden');
+      shareRecording(record);
+    });
+
+    container.appendChild(openButton);
+    container.appendChild(confirmation);
   }
 
   function addDeleteControls(container, record) {
@@ -287,21 +335,21 @@
       item.appendChild(title);
       item.appendChild(metadata);
 
-      var shareButton = document.createElement('button');
-      shareButton.type = 'button';
-      shareButton.className = 'share-button';
-      shareButton.dataset.recordingId = record.id;
-      shareButton.textContent = 'שתף הקלטה זו';
-      shareButton.addEventListener('click', handleShareClick);
-
       if (record.size > MAX_WINDOWS_BYTES) {
         var limit = document.createElement('p');
         limit.className = 'limit-warning';
-        limit.textContent = 'הקובץ חורג ממגבלת 25 MiB של עיבוד Windows. הוא נשמר כאן; לפני שיתוף תוצג אזהרה.';
+        limit.textContent = 'הקובץ חורג ממגבלת 25 MiB של עיבוד Windows. הוא נשמר כאן וניתן לשיתוף ידני לאחר אישור נוסף.';
         item.appendChild(limit);
-        shareButton.textContent = 'שתף בכל זאת (מעל 25 MiB)';
+        addOversizeShareControls(item, record);
+      } else {
+        var shareButton = document.createElement('button');
+        shareButton.type = 'button';
+        shareButton.className = 'share-button';
+        shareButton.dataset.recordingId = record.id;
+        shareButton.textContent = 'שתף הקלטה זו';
+        shareButton.addEventListener('click', handleShareClick);
+        item.appendChild(shareButton);
       }
-      item.appendChild(shareButton);
       addDeleteControls(item, record);
       recordingList.appendChild(item);
     });
@@ -394,13 +442,23 @@
   }
 
   startBtn.addEventListener('click', function () {
-    if (!storageReady || pendingSave) return;
+    if (!storageReady || pendingSave || isStarting || activeSession) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
       setMessage('המכשיר או הדפדפן אינם תומכים בהקלטה מתוך האפליקציה.', 'error');
       return;
     }
 
+    var requestId = ++startRequestId;
+    isStarting = true;
+    setStartingControls();
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (mediaStream) {
+      if (requestId !== startRequestId || !isStarting || activeSession) {
+        mediaStream.getTracks().forEach(function (track) {
+          try { track.stop(); } catch (error) {}
+        });
+        return;
+      }
+      isStarting = false;
       var session = {
         stream: mediaStream,
         recorder: null,
@@ -496,6 +554,8 @@
       statusText.textContent = 'מקליט';
       setMessage('ההקלטה עדיין אינה שמורה. השאר את האפליקציה פתוחה עד שתסיים ותופיע הודעת שמירה.', 'info');
     }).catch(function (error) {
+      if (requestId !== startRequestId) return;
+      isStarting = false;
       clearInterval(timerHandle);
       timerHandle = null;
       if (activeSession) {
@@ -543,7 +603,7 @@
   audioInput.addEventListener('change', function (event) {
     var file = event.target.files && event.target.files[0];
     event.target.value = '';
-    if (!file || !storageReady || pendingSave) return;
+    if (!file || !storageReady || pendingSave || isStarting || activeSession) return;
     if (!file.size) {
       setMessage('הקובץ שנבחר ריק ולכן לא נשמר.', 'error');
       return;
