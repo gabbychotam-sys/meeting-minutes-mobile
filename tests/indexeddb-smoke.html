@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>בדיקת IndexedDB מקומית</title>
+</head>
+<body>
+  <pre id="result">RUNNING</pre>
+  <script src="../recordings-store.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      var databaseName = 'meeting-minutes-mobile-browser-test-' + Date.now();
+      var result = document.getElementById('result');
+
+      function assert(condition, message) {
+        if (!condition) throw new Error(message);
+      }
+
+      function finish(status, details) {
+        document.documentElement.dataset.testResult = status;
+        result.textContent = status.toUpperCase() + ': ' + details;
+      }
+
+      async function run() {
+        var api = window.MeetingMinutesRecordings;
+        assert(api, 'storage API was not loaded');
+        assert(api.MAX_WINDOWS_BYTES === 25 * 1024 * 1024, '25 MiB limit changed');
+        var store = api.createStore({ databaseName: databaseName });
+        await store.saveRecording({
+          id: 'older-dummy',
+          blob: new Blob(['older-audio'], { type: 'audio/webm' }),
+          fileName: 'older.webm',
+          mimeType: 'audio/webm',
+          createdAt: 1000,
+          durationMs: 1500,
+          source: 'microphone'
+        });
+        await store.saveRecording({
+          id: 'newer-dummy',
+          blob: new Blob(['newer-audio'], { type: 'audio/mp4' }),
+          fileName: 'newer.m4a',
+          mimeType: 'audio/mp4',
+          createdAt: 2000,
+          durationMs: null,
+          source: 'file'
+        });
+        await store.close();
+
+        store = api.createStore({ databaseName: databaseName });
+
+        var records = await store.listRecordings();
+        assert(records.length === 2, 'records did not survive database close/reopen');
+        assert(records[0].id === 'newer-dummy', 'records are not sorted newest first');
+        assert(records[1].id === 'older-dummy', 'older record missing after reload');
+        assert(records[0].size === 11, 'saved Blob size changed');
+        assert(records[0].mimeType === 'audio/mp4', 'saved MIME type changed');
+        assert(await records[0].blob.text() === 'newer-audio', 'saved Blob bytes changed');
+        assert(records[0].durationMs === null, 'unknown duration was changed into a false value');
+        assert(records[1].durationMs === 1500, 'duration metadata changed');
+
+        assert(await store.updateDuration('newer-dummy', 2750), 'duration update failed');
+        records = await store.listRecordings();
+        assert(records[0].durationMs === 2750, 'updated duration was not persisted');
+
+        await store.deleteRecording('older-dummy');
+        await store.deleteRecording('newer-dummy');
+        assert((await store.listRecordings()).length === 0, 'test records were not deleted');
+        await store.close();
+        indexedDB.deleteDatabase(databaseName);
+        finish('passed', 'Blob and metadata survived close/reopen; update and exact deletion passed');
+      }
+
+      run().catch(function (error) {
+        finish('failed', error && error.message ? error.message : String(error));
+      });
+    })();
+  </script>
+</body>
+</html>

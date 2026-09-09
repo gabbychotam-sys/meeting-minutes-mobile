@@ -1,33 +1,53 @@
 <!doctype html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#4f46e5"><meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="סיכומי ישיבות"><link rel="manifest" href="manifest.json"><link rel="icon" href="icon.svg">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="סיכומי ישיבות">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg">
   <title>סיכומי ישיבות</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;background:#f4f4fb;color:#172033;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}main{max-width:620px;margin:auto;padding:calc(22px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom))}.hero{background:linear-gradient(145deg,#4f46e5,#7c3aed);color:#fff;border-radius:24px;padding:24px;box-shadow:0 14px 35px #4f46e533}h1{font-size:28px;margin:0 0 7px}.version{opacity:.8;font-size:13px}.hero p{margin:15px 0 0;line-height:1.5}.card{background:#fff;border-radius:20px;padding:20px;margin-top:16px;box-shadow:0 6px 20px #17203312}.status{display:flex;align-items:center;gap:10px;font-weight:700;margin-bottom:16px}.dot{width:12px;height:12px;border-radius:50%;background:#94a3b8}.dot.live{background:#ef4444;animation:pulse 1s infinite}.dot.ready{background:#22c55e}@keyframes pulse{50%{transform:scale(1.45);opacity:.55}}.timer{font-size:44px;font-variant-numeric:tabular-nums;text-align:center;font-weight:800;margin:18px 0}button,.file-label{border:0;border-radius:14px;padding:15px 18px;font:700 17px inherit;width:100%;cursor:pointer;text-align:center;display:block}.start{background:#dc2626;color:#fff}.stop{background:#172033;color:#fff}.share{background:#2563eb;color:#fff}.secondary{background:#eef2ff;color:#3730a3;margin-top:10px}.hidden{display:none!important}.note{font-size:14px;line-height:1.55;color:#526079;margin:13px 0 0}.ok{color:#087f5b;font-weight:700}.error{color:#b42318;font-weight:700}input[type=file]{display:none}.filename{font-size:14px;color:#526079;word-break:break-word;margin:10px 0 0}
+    *{box-sizing:border-box}body{margin:0;background:#f4f4fb;color:#172033;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}main{max-width:660px;margin:auto;padding:calc(22px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom))}.hero{background:linear-gradient(145deg,#4f46e5,#7c3aed);color:#fff;border-radius:24px;padding:24px;box-shadow:0 14px 35px #4f46e533}h1{font-size:28px;margin:0 0 7px}.version{opacity:.8;font-size:13px}.hero p{margin:15px 0 0;line-height:1.5}.card{background:#fff;border-radius:20px;padding:20px;margin-top:16px;box-shadow:0 6px 20px #17203312}.card-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 14px}.card-title h2{font-size:21px;margin:0}.count{color:#64748b;font-size:14px}.status{display:flex;align-items:center;gap:10px;font-weight:700;margin-bottom:16px}.dot{width:12px;height:12px;border-radius:50%;background:#94a3b8}.dot.live{background:#ef4444;animation:pulse 1s infinite}.dot.ready{background:#22c55e}.dot.saving{background:#f59e0b}.dot.error-dot{background:#dc2626}@keyframes pulse{50%{transform:scale(1.45);opacity:.55}}.timer{direction:ltr;font-size:44px;font-variant-numeric:tabular-nums;text-align:center;font-weight:800;margin:18px 0}button,.file-label{border:0;border-radius:14px;padding:14px 16px;font:700 16px inherit;cursor:pointer;text-align:center;display:block;width:100%}button:focus-visible,.file-label:focus-visible{outline:3px solid #f59e0b;outline-offset:3px}button:disabled,.file-label.disabled{cursor:not-allowed;opacity:.55}.start{background:#dc2626;color:#fff}.stop{background:#172033;color:#fff}.retry{background:#d97706;color:#fff}.file-label{background:#eef2ff;color:#3730a3}.hidden{display:none!important}.note{font-size:14px;line-height:1.55;color:#526079;margin:13px 0 0}.message.success{color:#087f5b;font-weight:700}.message.error{color:#b42318;font-weight:700}.message.info{color:#526079}input[type=file]{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}.storage-note{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px}.recording-list{display:grid;gap:12px}.recording-item{border:1px solid #dbe2ec;border-radius:16px;padding:15px;background:#fff}.recording-item h3{font-size:17px;margin:0 0 12px}.recording-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:13px}.recording-meta-item{background:#f8fafc;border-radius:10px;padding:8px;min-width:0}.recording-meta-label{display:block;color:#64748b;font-size:12px;margin-bottom:4px}.recording-meta strong{font-size:13px;font-variant-numeric:tabular-nums}.share-button{background:#2563eb;color:#fff}.delete-button{background:transparent;color:#b42318;border:1px solid #fecaca;margin-top:8px}.limit-warning{color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px;font-size:13px;line-height:1.45}.delete-confirm{background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:11px;margin-top:9px}.delete-confirm p{font-size:13px;line-height:1.45;margin:0 0 9px;color:#9f1239}.confirm-delete{background:#b42318;color:#fff;margin-bottom:7px}.cancel-delete{background:#e2e8f0;color:#172033}.empty-state{color:#64748b;text-align:center;margin:8px 0}.privacy{font-size:13px;color:#64748b;line-height:1.55}@media(max-width:430px){.recording-meta{grid-template-columns:1fr 1fr}.recording-meta-item:first-child{grid-column:1/-1}}@media(prefers-reduced-motion:reduce){.dot.live{animation:none}}
   </style>
 </head>
-<body><main>
-  <section class="hero"><h1>🎙️ סיכומי ישיבות</h1><div class="version">v2.0.0</div><p>מקליטים באייפון, משתפים ל־OneDrive, והמחשב מתמלל ומסכם אוטומטית.</p></section>
-  <section class="card">
-    <div class="status"><span id="statusDot" class="dot ready"></span><span id="statusText">מוכן להקלטה</span></div><div id="timer" class="timer">00:00</div>
-    <button id="startBtn" class="start">התחל הקלטה</button><button id="stopBtn" class="stop hidden">סיים הקלטה</button><button id="shareBtn" class="share hidden">שתף ל־OneDrive</button><button id="downloadBtn" class="secondary hidden">שמור בקבצים</button>
-    <div id="fileName" class="filename"></div><p id="message" class="note">GitHub מציג רק את האפליקציה. קובצי הקול אינם נשמרים בו.</p>
-  </section>
-  <section class="card"><label class="file-label secondary" for="audioInput">בחר הקלטה קיימת מהאייפון</label><input id="audioInput" type="file" accept="audio/*,.m4a,.mp3,.wav,.mp4,.webm"><p class="note">לאחר הבחירה לחץ „שתף ל־OneDrive” ובחר את התיקייה „סיכומי ישיבות – הקלטות מהנייד”.</p></section>
-</main><script>
-(function(){
-var stream=null,recorder=null,chunks=[],currentFile=null,startedAt=0,timerHandle=null,wakeLock=null;
-var startBtn=document.getElementById('startBtn'),stopBtn=document.getElementById('stopBtn'),shareBtn=document.getElementById('shareBtn'),downloadBtn=document.getElementById('downloadBtn'),statusDot=document.getElementById('statusDot'),statusText=document.getElementById('statusText'),timer=document.getElementById('timer'),message=document.getElementById('message'),fileName=document.getElementById('fileName');
-function pad(n){return String(n).padStart(2,'0')}function stamp(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'_'+pad(d.getHours())+'-'+pad(d.getMinutes())+'-'+pad(d.getSeconds())}function setMessage(t,b){message.textContent=t;message.className='note '+(b?'error':'ok')}function updateTimer(){var s=Math.floor((Date.now()-startedAt)/1000);timer.textContent=pad(Math.floor(s/60))+':'+pad(s%60)}
-function bestMime(){var l=['audio/mp4','audio/webm;codecs=opus','audio/webm'];for(var i=0;i<l.length;i++)if(window.MediaRecorder&&MediaRecorder.isTypeSupported(l[i]))return l[i];return ''}function extFor(t){return t.indexOf('mp4')>=0?'m4a':t.indexOf('webm')>=0?'webm':'audio'}async function requestWake(){try{if(navigator.wakeLock)wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}function releaseWake(){try{if(wakeLock)wakeLock.release()}catch(e){}wakeLock=null}
-function showReady(f){currentFile=f;fileName.textContent=f.name;shareBtn.classList.remove('hidden');downloadBtn.classList.remove('hidden');statusDot.className='dot ready';statusText.textContent='הקובץ מוכן לשיתוף';setMessage('הקובץ נשאר באייפון עד שתשתף אותו ל־OneDrive.',false)}
-startBtn.onclick=async function(){if(!navigator.mediaDevices||!window.MediaRecorder){setMessage('יש לפתוח את האפליקציה דרך Safari.',true);return}try{stream=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];currentFile=null;var mime=bestMime(),opts=mime?{mimeType:mime}:undefined;recorder=new MediaRecorder(stream,opts);recorder.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data)};recorder.onstop=function(){var type=recorder.mimeType||mime||'audio/webm',blob=new Blob(chunks,{type:type});showReady(new File([blob],'סיכומי-ישיבות_'+stamp()+'.'+extFor(type),{type:type,lastModified:Date.now()}));if(stream)stream.getTracks().forEach(function(t){t.stop()});stream=null};recorder.start(1000);startedAt=Date.now();timerHandle=setInterval(updateTimer,500);updateTimer();requestWake();startBtn.classList.add('hidden');shareBtn.classList.add('hidden');downloadBtn.classList.add('hidden');stopBtn.classList.remove('hidden');statusDot.className='dot live';statusText.textContent='מקליט';setMessage('השאר את המסך פתוח עד לסיום ההקלטה.',false)}catch(e){setMessage('לא התקבלה הרשאת מיקרופון.',true)}};
-stopBtn.onclick=function(){stopBtn.classList.add('hidden');startBtn.classList.remove('hidden');clearInterval(timerHandle);releaseWake();if(recorder&&recorder.state!=='inactive')recorder.stop()};
-shareBtn.onclick=async function(){if(!currentFile)return;try{if(navigator.canShare&&navigator.canShare({files:[currentFile]})){await navigator.share({files:[currentFile],title:'סיכומי ישיבות'});setMessage('לאחר השמירה ב־OneDrive המחשב יקלוט את הקובץ.',false)}else downloadFile()}catch(e){if(e&&e.name!=='AbortError')setMessage('השיתוף לא הושלם. אפשר להשתמש ב„שמור בקבצים”.',true)}};
-function downloadFile(){if(!currentFile)return;var a=document.createElement('a'),u=URL.createObjectURL(currentFile);a.href=u;a.download=currentFile.name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},1000)}downloadBtn.onclick=downloadFile;
-document.getElementById('audioInput').onchange=function(e){var f=e.target.files&&e.target.files[0];if(f)showReady(f)};window.addEventListener('beforeunload',function(e){if(recorder&&recorder.state==='recording'){e.preventDefault();e.returnValue=''}});if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
-})();
-</script></body></html>
+<body>
+  <main>
+    <section class="hero">
+      <h1>🎙️ סיכומי ישיבות</h1>
+      <div class="version">v2.1.0 — שמירה מקומית</div>
+      <p>מקליטים ושומרים את קובץ הקול בתוך האפליקציה במכשיר. לאחר השמירה אפשר לבחור הקלטה ולשתף אותה.</p>
+    </section>
+
+    <section class="card" aria-labelledby="recordHeading">
+      <div class="card-title"><h2 id="recordHeading">הקלטה חדשה</h2></div>
+      <div class="status"><span id="statusDot" class="dot" aria-hidden="true"></span><span id="statusText">טוען את האחסון…</span></div>
+      <div id="timer" class="timer">00:00</div>
+      <button id="startBtn" class="start" type="button" disabled>התחל הקלטה</button>
+      <button id="stopBtn" class="stop hidden" type="button">סיים ושמור הקלטה</button>
+      <button id="retryBtn" class="retry hidden" type="button">נסה שוב לשמור</button>
+      <p id="message" class="note message info" role="status" aria-live="polite">האפליקציה בודקת שהאחסון המתמשך זמין לפני הקלטה.</p>
+    </section>
+
+    <section class="card" aria-labelledby="importHeading">
+      <div class="card-title"><h2 id="importHeading">קובץ קול קיים</h2></div>
+      <label class="file-label" for="audioInput">בחר קובץ שמע לשמירה באפליקציה</label>
+      <input id="audioInput" type="file" accept="audio/*,.m4a,.mp3,.wav,.mp4,.webm" disabled>
+      <p class="note">הקובץ שנבחר נשמר תחילה בתוך האפליקציה ורק אחר כך מופיע ברשימה וניתן לשיתוף.</p>
+    </section>
+
+    <section class="card" aria-labelledby="savedHeading">
+      <div class="card-title"><h2 id="savedHeading">הקלטות שמורות</h2><span id="recordCount" class="count"></span></div>
+      <p class="note storage-note">הקלטות נשמרות במכשיר זה גם לאחר סגירה ופתיחה. מחיקת האפליקציה או נתוני האתר עלולה למחוק אותן.</p>
+      <p class="note storage-note">מגבלת העיבוד ב־Windows היא 25 MiB לקובץ. הקלטה גדולה יותר תישאר שמורה כאן ולא תישלח לעיבוד.</p>
+      <div id="recordingList" class="recording-list" aria-live="polite"><p class="empty-state">טוען הקלטות…</p></div>
+    </section>
+
+    <p class="privacy">האפליקציה בנייד שומרת ומשתפת קובץ קול בלבד. אין בנייד תמלול, סיכום או עיבוד AI.</p>
+  </main>
+  <script src="recordings-store.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

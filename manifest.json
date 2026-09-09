@@ -1,12 +1,14 @@
 {
   "name": "סיכומי ישיבות",
   "short_name": "סיכומי ישיבות",
-  "description": "הקלטה, תמלול וסיכום אוטומטי של ישיבות",
+  "description": "הקלטת קול, שמירה מקומית ושיתוף מתוך המכשיר",
+  "id": "./",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f2f4f8",
-  "theme_color": "#16213e",
+  "background_color": "#f4f4fb",
+  "theme_color": "#4f46e5",
   "dir": "rtl",
   "lang": "he",
   "icons": [
